@@ -1,0 +1,19 @@
+{
+    "addons": {
+      "TabEnhance@example.com": {
+        "updates": [
+          {
+            "version": "0.0.1",
+            "update_link": "https://github.com/Rphone/zotero-tab-enhance/releases/download/release/TabEnhance.xpi",
+            "update_hash": "sha256:c1030f80249a08bed9ab1aabc761f0eecebae77473e9bed0edab6a899cc8c435",
+            "applications": {
+              "zotero": {
+                "strict_min_version": "7.0.0-beta.70",
+                "strict_max_version": "7.1.*"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
