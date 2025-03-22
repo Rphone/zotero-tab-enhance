@@ -4,6 +4,9 @@
     return;
   }
 
+  // 添加调试控制变量
+  const DEBUG_MODE = false;
+
   class TabEnhanceModule {
     constructor(window) {
       this.window = window;
@@ -12,28 +15,34 @@
       this._handleContextMenu = this._handleContextMenu.bind(this);
     }
 
+    // 添加日志方法
+    _log(message, level = 'debug') {
+      if (DEBUG_MODE || level === 'error') {
+        Zotero.debug(`TabEnhance: ${message}`);
+      }
+    }
+
     init() {
       if (this.initialized) return;
 
       // Add right-click event listener
+      this.removeEventListeners();
       this._addTabContextMenuListener();
       this.initialized = true;
-      // Zotero.debug("TabEnhance: Initialization complete");
+      this._log("Initialization complete");
     }
 
     _addTabContextMenuListener() {
       let lastClickedTabInfo = null;
 
       this._handleContextMenuEvent = (event) => {
-        // Zotero.debug("TabEnhance: Tab right-clicked");
+        this._log("Tab right-clicked");
         lastClickedTabInfo = this._extractTabInfo(event);
-        // Zotero.debug(
-        //   `TabEnhance: Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`
-        // );
+        this._log(`Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`);
       };
 
       this.handlepopupshowingEvent = (event) => {
-        // Zotero.debug("TabEnhance: Menu popup");
+        this._log("Menu popup");
         if (lastClickedTabInfo) {
           this._handleContextMenu(event.target, lastClickedTabInfo);
         }
@@ -42,7 +51,6 @@
 
       // Find containers that might contain tabs
       const tabContainers = [
-        this.document.querySelector(".pinned-tabs .tabs"),
         this.document.querySelector(".tabs-wrapper .tabs"),
       ].filter((container) => container !== null);
 
@@ -56,7 +64,7 @@
         this.handlepopupshowingEvent
       );
 
-      // Zotero.debug("TabEnhance: Added listeners to tab containers");
+      this._log("Added listeners to tab containers");
     }
 
     _extractTabInfo(event) {
@@ -89,9 +97,7 @@
       const isSelected = info.isSelected;
       const tabTitle = info.tabTitle;
 
-      // Zotero.debug(
-      //   `TabEnhance: Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`
-      // );
+      this._log(`Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`);
 
       const menupopup = element;
 
@@ -99,7 +105,7 @@
       const existingMenuItems = menupopup.querySelectorAll("menuitem");
       for (const menuItem of existingMenuItems) {
         if (menuItem.getAttribute("id") === "tabEnhance-show-in-filesystem") {
-          // Zotero.debug("TabEnhance: Menu item already exists");
+          this._log("Menu item already exists");
           return;
         }
       }
@@ -120,34 +126,35 @@
       try {
         let { tab } = this.window.Zotero_Tabs._getTab(tabId);
         if (!tab || (tab.type !== "reader" && tab.type !== "reader-unloaded")) {
-          // Zotero.debug("TabEnhance: Invalid tab");
+          this._log("Invalid tab");
           return;
         }
 
         let itemID = tab.data.itemID;
         let item = Zotero.Items.get(itemID);
-        // Zotero.debug(
-        //   `TabEnhance: Processing tab item - ID: ${itemID}, Type: ${
-        //     item ? item.itemType : "unknown"
-        //   }`
-        // );
+        this._log(`Processing tab item - ID: ${itemID}, Type: ${item ? item.itemType : "unknown"}`);
         
         let attachment = item.isFileAttachment() ? item : item.getBestAttachment();
         if (!attachment) {
-          // Zotero.debug("TabEnhance: No attachment found");
+          this._log("No attachment found");
           return;
         }
         await this.window.ZoteroPane.showAttachmentInFilesystem(attachment.id);
         
       } catch (error) {
-        // Zotero.debug(`TabEnhance: Error showing in filesystem - ${error.message}`);
+        this._log(`Error showing in filesystem - ${error.message}`, 'error');
       }
     }
 
     destroy() {
       if (!this.initialized) return;
-
       // Remove event listeners
+      this.removeEventListeners();
+      this.initialized = false;
+      this._log("Destroyed");
+    }
+
+    removeEventListeners() {
       const tabContainers = [
         this.document.querySelector(".tabs-wrapper .tabs"),
       ].filter((container) => container !== null);
@@ -164,14 +171,20 @@
         "popupshowing",
         this.handlepopupshowingEvent
       );
-      this.initialized = false;
-      // Zotero.debug("TabEnhance: Destroyed");
     }
   }
 
   // Export module
   Zotero.TabEnhance = {
     _instances: new Map(),
+    DEBUG_MODE: DEBUG_MODE,  // 导出调试模式变量
+
+    // 添加日志方法到模块级别
+    log(message, level = 'debug') {
+      if (this.DEBUG_MODE || level === 'error') {
+        Zotero.debug(`TabEnhance: ${message}`);
+      }
+    },
 
     init(window) {
       if (!window || this._instances.has(window)) return;

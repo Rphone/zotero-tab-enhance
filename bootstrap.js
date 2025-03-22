@@ -2,8 +2,6 @@ function install() {
   // No operation on install
 }
 
-let windowListener;
-
 async function startup({ id, version, rootURI }) {
   // Wait for Zotero to fully initialize
   await Zotero.initializationPromise;
@@ -18,7 +16,10 @@ async function startup({ id, version, rootURI }) {
       Zotero.TabEnhance.init(window);
     }
   } catch (e) {
-    // Error handling
+    // 使用详细的错误日志格式
+    Zotero.debug(`TabEnhance: Error loading module - ${e.message || e}`);
+    Zotero.debug(`TabEnhance: Error details - ${e.toString()}`);
+    Zotero.debug(`TabEnhance: Error stack - ${e.stack}`);
   }
 }
 
@@ -36,11 +37,6 @@ function onMainWindowUnload({ window }) {
 }
 
 function shutdown() {
-  // Remove window listener
-  if (windowListener) {
-    Services.wm.removeListener(windowListener);
-    windowListener = null;
-  }
   
   // Cleanup all instances
   if (typeof Zotero.TabEnhance !== 'undefined') {
