@@ -16,7 +16,7 @@ async function startup({ id, version, rootURI }) {
       Zotero.TabEnhance.init(window);
     }
   } catch (e) {
-    // 使用详细的错误日志格式
+    // Log error
     Zotero.debug(`TabEnhance: Error loading module - ${e.message || e}`);
     Zotero.debug(`TabEnhance: Error details - ${e.toString()}`);
     Zotero.debug(`TabEnhance: Error stack - ${e.stack}`);
