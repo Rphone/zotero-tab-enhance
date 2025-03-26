@@ -5,6 +5,7 @@ TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 ## 主要功能
 
 - **在文件系统中显示**: 右键点击文档标签页，可以快速在文件系统中定位当前文档(避免从Zotero item 再到 文件系统 的两步跳转)
+- **重新载入标签页**：右键点击文档标签页，可以重新载入标签页(方便同步外部编辑器对文档的修改)
 - *(更多功能开发中...)*
 
 ## 安装
@@ -22,9 +23,7 @@ TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 ### 标签直接跳转文件系统
 
 1. 打开一个PDF或其他文档在Zotero中
-
 2. 右键点击该文档的标签页
-
 3. 选择"Show in Filesystem"选项
 
    #### 功能截图
@@ -33,6 +32,15 @@ TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 ![show_in_filesystem](assets/show_in_filesystem.png)
 
 ![show_in_filesystem2](assets/show_in_filesystem_2.png)
+
+### 标签重载
+1. 打开一个PDF或其他文档在Zotero中
+2. 右键点击该文档的标签页
+3. 选择"Reload"选项
+
+   #### 功能截图
+   ![reload1](assets/reload_1.png)
+
 
 ## 问题反馈
 

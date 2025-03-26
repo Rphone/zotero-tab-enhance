@@ -1,19 +1,19 @@
 {
-    "addons": {
-      "TabEnhance@example.com": {
-        "updates": [
-          {
-            "version": "0.0.2",
-            "update_link": "https://github.com/Rphone/zotero-tab-enhance/releases/download/0.0.2/TabEnhance_V0.0.2.xpi",
-            "update_hash": "sha256:b2386947976575adf332909b1f29317c890b03508409e743742eb68f423a81d5",
-            "applications": {
-              "zotero": {
-                "strict_min_version": "7.0.0-beta.70",
-                "strict_max_version": "7.1.*"
-              }
+  "addons": {
+    "TabEnhance@example.com": {
+      "updates": [
+        {
+          "version": "0.1.0",
+          "update_link": "https://github.com/Rphone/zotero-tab-enhance/releases/download/0.1.0/TabEnhance_V0.1.0.xpi",
+          "update_hash": "sha256:3694f9251cfb3961d33f9b77c0c87d936248258edcededee588f7d55391daa9d",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "7.0.0-beta.70",
+              "strict_max_version": "7.1.*"
             }
           }
-        ]
-      }
+        }
+      ]
     }
   }
+}
