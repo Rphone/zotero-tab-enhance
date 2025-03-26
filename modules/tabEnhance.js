@@ -1,10 +1,10 @@
-(function() {
+(function () {
   // Avoid duplicate declarations
   if (typeof Zotero.TabEnhance !== "undefined") {
     return;
   }
 
-  // 添加调试控制变量
+  // add debug flag
   const DEBUG_MODE = false;
 
   class TabEnhanceModule {
@@ -15,9 +15,9 @@
       this._handleContextMenu = this._handleContextMenu.bind(this);
     }
 
-    // 添加日志方法
-    _log(message, level = 'debug') {
-      if (DEBUG_MODE || level === 'error') {
+    // Add log method to instance
+    _log(message, level = "debug") {
+      if (DEBUG_MODE || level === "error") {
         Zotero.debug(`TabEnhance: ${message}`);
       }
     }
@@ -38,7 +38,9 @@
       this._handleContextMenuEvent = (event) => {
         this._log("Tab right-clicked");
         lastClickedTabInfo = this._extractTabInfo(event);
-        this._log(`Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`);
+        this._log(
+          `Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`
+        );
       };
 
       this.handlepopupshowingEvent = (event) => {
@@ -56,7 +58,10 @@
 
       for (const container of tabContainers) {
         if (container) {
-          container.addEventListener("contextmenu", this._handleContextMenuEvent);
+          container.addEventListener(
+            "contextmenu",
+            this._handleContextMenuEvent
+          );
         }
       }
       this.document.addEventListener(
@@ -97,7 +102,9 @@
       const isSelected = info.isSelected;
       const tabTitle = info.tabTitle;
 
-      this._log(`Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`);
+      this._log(
+        `Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`
+      );
 
       const menupopup = element;
 
@@ -120,8 +127,34 @@
       );
       // Append menuitem to menupopup
       menupopup.appendChild(newMenuItem);
-    }
 
+      // add reload menu item
+      const reloadMenuItem = this.document.createXULElement("menuitem");
+      reloadMenuItem.setAttribute("label", "Reload");
+      reloadMenuItem.setAttribute("id", "tabEnhance-reload");
+      reloadMenuItem.addEventListener("command", () => 
+        this._reloadTab(tabId)
+      );
+      menupopup.appendChild(reloadMenuItem);
+
+    }
+    async _reloadTab(tabId) {
+      try{
+        let { tab } = this.window.Zotero_Tabs._getTab(tabId);
+        if (!tab || (tab.type !== "reader" && tab.type !== "reader-unloaded")) {
+          this._log("Invalid tab");
+          return;
+        }
+        let { itemID, secondViewState } = tab.data;
+        let item = Zotero.Items.get(itemID);
+        this.window.Zotero_Tabs.close(tabId);
+        await Zotero.FileHandlers.open(item);
+
+      } catch (error) {
+        this._log(`Error reloading tab - ${error.message}`,
+        "error");
+      }
+    }
     async _showInFilesystem(tabId) {
       try {
         let { tab } = this.window.Zotero_Tabs._getTab(tabId);
@@ -132,17 +165,22 @@
 
         let itemID = tab.data.itemID;
         let item = Zotero.Items.get(itemID);
-        this._log(`Processing tab item - ID: ${itemID}, Type: ${item ? item.itemType : "unknown"}`);
-        
-        let attachment = item.isFileAttachment() ? item : item.getBestAttachment();
+        this._log(
+          `Processing tab item - ID: ${itemID}, Type: ${
+            item ? item.itemType : "unknown"
+          }`
+        );
+
+        let attachment = item.isFileAttachment()
+          ? item
+          : item.getBestAttachment();
         if (!attachment) {
           this._log("No attachment found");
           return;
         }
         await this.window.ZoteroPane.showAttachmentInFilesystem(attachment.id);
-        
       } catch (error) {
-        this._log(`Error showing in filesystem - ${error.message}`, 'error');
+        this._log(`Error showing in filesystem - ${error.message}`, "error");
       }
     }
 
@@ -177,11 +215,11 @@
   // Export module
   Zotero.TabEnhance = {
     _instances: new Map(),
-    DEBUG_MODE: DEBUG_MODE,  // 导出调试模式变量
+    DEBUG_MODE: DEBUG_MODE, 
 
-    // 添加日志方法到模块级别
-    log(message, level = 'debug') {
-      if (this.DEBUG_MODE || level === 'error') {
+    // Add log method to module
+    log(message, level = "debug") {
+      if (this.DEBUG_MODE || level === "error") {
         Zotero.debug(`TabEnhance: ${message}`);
       }
     },
@@ -211,6 +249,6 @@
     // Add unload method
     unload() {
       this.destroy();
-    }
+    },
   };
 })();
