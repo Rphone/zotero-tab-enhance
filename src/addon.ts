@@ -2,6 +2,7 @@ import { config } from "../package.json";
 import { ColumnOptions, DialogHelper } from "zotero-plugin-toolkit";
 import hooks from "./hooks";
 import { createZToolkit } from "./utils/ztoolkit";
+import TabEnhance from "./modules/tabEnhance";
 
 class Addon {
   public data: {
@@ -25,6 +26,8 @@ class Addon {
   public hooks: typeof hooks;
   // APIs
   public api: object;
+
+  public tab_enhance?: TabEnhance;
 
   constructor() {
     this.data = {
