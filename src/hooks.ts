@@ -8,7 +8,7 @@ import {
 import { getString, initLocale } from "./utils/locale";
 import { registerPrefsScripts } from "./modules/preferenceScript";
 import { createZToolkit } from "./utils/ztoolkit";
-
+import TabEnhance from "./modules/tabEnhance";
 async function onStartup() {
   await Promise.all([
     Zotero.initializationPromise,
@@ -17,23 +17,6 @@ async function onStartup() {
   ]);
 
   initLocale();
-
-  BasicExampleFactory.registerPrefs();
-
-  BasicExampleFactory.registerNotifier();
-
-  KeyExampleFactory.registerShortcuts();
-
-  await UIExampleFactory.registerExtraColumn();
-
-  await UIExampleFactory.registerExtraColumnWithCustomCell();
-
-  UIExampleFactory.registerItemPaneCustomInfoRow();
-
-  UIExampleFactory.registerItemPaneSection();
-
-  UIExampleFactory.registerReaderItemPaneSection();
-
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
@@ -48,50 +31,13 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
-  const popupWin = new ztoolkit.ProgressWindow(addon.data.config.addonName, {
-    closeOnClick: true,
-    closeTime: -1,
-  })
-    .createLine({
-      text: getString("startup-begin"),
-      type: "default",
-      progress: 0,
-    })
-    .show();
-
-  await Zotero.Promise.delay(1000);
-  popupWin.changeLine({
-    progress: 30,
-    text: `[30%] ${getString("startup-begin")}`,
-  });
-
-  UIExampleFactory.registerStyleSheet(win);
-
-  UIExampleFactory.registerRightClickMenuItem();
-
-  UIExampleFactory.registerRightClickMenuPopup(win);
-
-  UIExampleFactory.registerWindowMenuWithSeparator();
-
-  PromptExampleFactory.registerNormalCommandExample();
-
-  PromptExampleFactory.registerAnonymousCommandExample(win);
-
-  PromptExampleFactory.registerConditionalCommandExample();
-
-  await Zotero.Promise.delay(1000);
-
-  popupWin.changeLine({
-    progress: 100,
-    text: `[100%] ${getString("startup-finish")}`,
-  });
-  popupWin.startCloseTimer(5000);
-
-  addon.hooks.onDialogEvents("dialogExample");
+  addon.tab_enhance = new TabEnhance(win);
+  addon.tab_enhance.init();
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
   ztoolkit.unregisterAll();
+  addon.tab_enhance?.destroy();
   addon.data.dialog?.window?.close();
 }
 
