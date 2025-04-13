@@ -1,7 +1,7 @@
 {
   "name": "zotero-tab-enhance",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Tab Enhance is a Zotero add-on that add some useful features to the tab pane.",
   "config": {
     "addonName": "Tab Enhance",
@@ -19,7 +19,7 @@
     "url": "https://github.com/Rphone/zotero-tab-enhance/issues"
   },
   "homepage": "https://github.com/Rphone/zotero-tab-enhance#readme",
-  "license": "GPLv3",
+  "license": "AGPLv3",
   "scripts": {
     "start": "zotero-plugin serve",
     "build": "zotero-plugin build && tsc --noEmit",
