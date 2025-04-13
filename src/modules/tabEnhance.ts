@@ -29,6 +29,9 @@ export default class TabEnhance {
 
   constructor(window: Window) {
     this.window = window;
+    if (!window.document) {
+      throw new Error("Document is not available on the provided window.");
+    }
     this.document = window.document;
     this.initialized = false;
   }
