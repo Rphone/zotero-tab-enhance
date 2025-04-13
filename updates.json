@@ -3,9 +3,9 @@
     "TabEnhance@example.com": {
       "updates": [
         {
-          "version": "0.1.5",
-          "update_link": "https://github.com/Rphone/zotero-tab-enhance/releases/download/v0.1.5/tab-enhance.xpi",
-          "update_hash": "sha512:38af4786bbab092766ededa895ec80ba500ea340fc4585234e998c373251d9fbda8c091003ec7ebd852638f81443465ddd081bd7552fd2889437fbbe352d1264",
+          "version": "0.2.0",
+          "update_link": "https://github.com/Rphone/zotero-tab-enhance/releases/download/v0.2.0/tab-enhance.xpi",
+          "update_hash": "sha512:0e080b8a30fe47d049bb76d0766190928eeba4ad204f8c63ad2eab76bc7925d2d6208daff07c2a1239f11269dde8294297db1767744262f88fa74e488b3a78b5",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
