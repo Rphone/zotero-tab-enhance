@@ -5,11 +5,11 @@ function install() {
 async function startup({ id, version, rootURI }) {
   // Wait for Zotero to fully initialize
   await Zotero.initializationPromise;
-  
+
   // Load tab enhancement module
   try {
     Services.scriptloader.loadSubScript(rootURI + "modules/tabEnhance.js");
-    
+
     // Add listeners to existing windows
     const windows = Zotero.getMainWindows();
     for (const window of windows) {
@@ -24,22 +24,21 @@ async function startup({ id, version, rootURI }) {
 }
 
 function onMainWindowLoad({ window }) {
-  if (typeof Zotero.TabEnhance !== 'undefined') {
+  if (typeof Zotero.TabEnhance !== "undefined") {
     Zotero.TabEnhance.init(window);
   }
 }
 
 function onMainWindowUnload({ window }) {
   // Cleanup on window close
-  if (typeof Zotero.TabEnhance !== 'undefined') {
+  if (typeof Zotero.TabEnhance !== "undefined") {
     Zotero.TabEnhance.destroy(window);
   }
 }
 
 function shutdown() {
-  
   // Cleanup all instances
-  if (typeof Zotero.TabEnhance !== 'undefined') {
+  if (typeof Zotero.TabEnhance !== "undefined") {
     // Use new unload method
     Zotero.TabEnhance.unload();
     // Don't delete Zotero.TabEnhance, let it check itself on next startup
@@ -49,7 +48,7 @@ function shutdown() {
 function uninstall() {
   shutdown();
   // Try to completely remove module reference on uninstall
-  if (typeof Zotero.TabEnhance !== 'undefined') {
+  if (typeof Zotero.TabEnhance !== "undefined") {
     delete Zotero.TabEnhance;
   }
 }
