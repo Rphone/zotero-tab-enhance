@@ -1,7 +1,7 @@
 {
   "name": "zotero-tab-enhance",
   "type": "module",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Tab Enhance is a Zotero add-on that add some useful features to the tab pane.",
   "config": {
     "addonName": "Tab Enhance",

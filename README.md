@@ -8,7 +8,7 @@ Tab Enhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 
 - **在文件系统中显示**: 右键点击文档标签页，可以快速在文件系统中定位当前文档(避免从Zotero item 再到 文件系统 的两步跳转)
 - **重新载入标签页**：右键点击文档标签页，可以重新载入标签页(方便同步外部编辑器对文档的修改)
-- *(更多功能开发中...)*
+- _(更多功能开发中...)_
 
 ## 安装
 
@@ -18,7 +18,7 @@ Tab Enhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 ## 兼容性
 
 - 需要Zotero 7.0或更高版本
-- 兼容Zotero 7.0-7.1.*
+- 兼容Zotero 7.0-7.1.\*
 
 ## 功能
 
@@ -30,18 +30,17 @@ Tab Enhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 
    #### 功能截图
 
-
 ![show_in_filesystem](assets/show_in_filesystem.gif)
 
-
 ### 标签重载
+
 1. 打开一个PDF或其他文档在Zotero中
 2. 右键点击该文档的标签页
 3. 选择"Reload"选项
 
    #### 功能截图
-   ![reload1](assets/reload_1.gif)
 
+   ![reload1](assets/reload_1.gif)
 
 ## 问题反馈
 
