@@ -39,7 +39,7 @@
         this._log("Tab right-clicked");
         lastClickedTabInfo = this._extractTabInfo(event);
         this._log(
-          `Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`
+          `Tab clicked - ${lastClickedTabInfo?.tabId || "unidentified"}`,
         );
       };
 
@@ -60,13 +60,13 @@
         if (container) {
           container.addEventListener(
             "contextmenu",
-            this._handleContextMenuEvent
+            this._handleContextMenuEvent,
           );
         }
       }
       this.document.addEventListener(
         "popupshowing",
-        this.handlepopupshowingEvent
+        this.handlepopupshowingEvent,
       );
 
       this._log("Added listeners to tab containers");
@@ -103,7 +103,7 @@
       const tabTitle = info.tabTitle;
 
       this._log(
-        `Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`
+        `Detected tab right-click - ID: ${tabId}, Title: ${tabTitle}, Selected: ${isSelected}`,
       );
 
       const menupopup = element;
@@ -123,7 +123,7 @@
       newMenuItem.setAttribute("id", "tabEnhance-show-in-filesystem");
       // Add click event
       newMenuItem.addEventListener("command", () =>
-        this._showInFilesystem(tabId)
+        this._showInFilesystem(tabId),
       );
       // Append menuitem to menupopup
       menupopup.appendChild(newMenuItem);
@@ -132,14 +132,11 @@
       const reloadMenuItem = this.document.createXULElement("menuitem");
       reloadMenuItem.setAttribute("label", "Reload");
       reloadMenuItem.setAttribute("id", "tabEnhance-reload");
-      reloadMenuItem.addEventListener("command", () => 
-        this._reloadTab(tabId)
-      );
+      reloadMenuItem.addEventListener("command", () => this._reloadTab(tabId));
       menupopup.appendChild(reloadMenuItem);
-
     }
     async _reloadTab(tabId) {
-      try{
+      try {
         let { tab } = this.window.Zotero_Tabs._getTab(tabId);
         if (!tab || (tab.type !== "reader" && tab.type !== "reader-unloaded")) {
           this._log("Invalid tab");
@@ -149,10 +146,8 @@
         let item = Zotero.Items.get(itemID);
         this.window.Zotero_Tabs.close(tabId);
         await Zotero.FileHandlers.open(item);
-
       } catch (error) {
-        this._log(`Error reloading tab - ${error.message}`,
-        "error");
+        this._log(`Error reloading tab - ${error.message}`, "error");
       }
     }
     async _showInFilesystem(tabId) {
@@ -168,7 +163,7 @@
         this._log(
           `Processing tab item - ID: ${itemID}, Type: ${
             item ? item.itemType : "unknown"
-          }`
+          }`,
         );
 
         let attachment = item.isFileAttachment()
@@ -201,13 +196,13 @@
         if (container) {
           container.removeEventListener(
             "contextmenu",
-            this._handleContextMenuEvent
+            this._handleContextMenuEvent,
           );
         }
       }
       this.document.removeEventListener(
         "popupshowing",
-        this.handlepopupshowingEvent
+        this.handlepopupshowingEvent,
       );
     }
   }
@@ -215,7 +210,7 @@
   // Export module
   Zotero.TabEnhance = {
     _instances: new Map(),
-    DEBUG_MODE: DEBUG_MODE, 
+    DEBUG_MODE: DEBUG_MODE,
 
     // Add log method to module
     log(message, level = "debug") {
