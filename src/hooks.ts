@@ -43,6 +43,7 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 
 function onShutdown(): void {
   ztoolkit.unregisterAll();
+  addon.tab_enhance?.destroy();
   addon.data.dialog?.window?.close();
   // Remove addon object
   addon.data.alive = false;
