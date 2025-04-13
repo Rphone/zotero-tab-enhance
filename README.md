@@ -1,6 +1,8 @@
 # Tab Enhance for Zotero
 
-TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷功能。
+Tab Enhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷功能。
+
+[![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template)
 
 ## 主要功能
 
