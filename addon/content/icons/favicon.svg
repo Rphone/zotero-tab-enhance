@@ -1,0 +1,16 @@
+<svg width="128" height="128" viewBox="12 26.6666667 96 42.6666667" xmlns="http://www.w3.org/2000/svg">
+  <!-- 标签页 - 最底层 -->
+  <rect x="28" y="48" width="80" height="24" rx="6" fill="#A4D4FA" opacity="0.6"/>
+
+  <!-- 标签页 - 中间层 -->
+  <rect x="20" y="40" width="80" height="24" rx="6" fill="#3DA5F5" opacity="0.8"/>
+
+  <!-- 标签页 - 顶层 -->
+  <rect x="12" y="32" width="80" height="24" rx="6" fill="#0078D4"/>
+
+  <!-- 加号图标（嵌在顶层标签页右上角） -->
+  <g transform="translate(80, 28) scale(0.8)">
+    <rect width="24" height="24" rx="6" fill="#FFA500"/>
+    <path d="M12 6 V18 M6 12 H18" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
