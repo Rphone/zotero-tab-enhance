@@ -1,6 +1,8 @@
 # Tab Enhance for Zotero
 
-TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷功能。
+Tab Enhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷功能。
+
+[![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template)
 
 ## 主要功能
 
@@ -29,9 +31,8 @@ TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
    #### 功能截图
 
 
-![show_in_filesystem](assets/show_in_filesystem.png)
+![show_in_filesystem](assets/show_in_filesystem.gif)
 
-![show_in_filesystem2](assets/show_in_filesystem_2.png)
 
 ### 标签重载
 1. 打开一个PDF或其他文档在Zotero中
@@ -39,13 +40,13 @@ TabEnhance是一个Zotero 7插件，为Zotero的标签页添加了更多便捷�
 3. 选择"Reload"选项
 
    #### 功能截图
-   ![reload1](assets/reload_1.png)
+   ![reload1](assets/reload_1.gif)
 
 
 ## 问题反馈
 
-本人不熟悉JavaScript和Zotero插件开发，因此插件难免会碰到潜在的bug，如有问题或建议，请在[GitHub Issues](https://github.com/Rphone/zotero-tab-enhance/issues)页面提交。
+本人非经验丰富的JavaScript和Zotero开发者，因此插件难免会碰到潜在的bug，如有问题或建议，请在[GitHub Issues](https://github.com/Rphone/zotero-tab-enhance/issues)页面提交。
 
 ## 许可
 
-该项目基于[GPLv3]([LICENSE](https://www.gnu.org/licenses/gpl-3.0.en.html))许可发布。
+该项目基于[AGPLv3](https://www.gnu.org/licenses/agpl-3.0.html)许可发布。
