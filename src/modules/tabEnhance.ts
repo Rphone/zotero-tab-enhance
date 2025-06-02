@@ -16,6 +16,7 @@ interface MenuItemConfig {
 const MENU_ITEM_IDS = {
   SHOW_IN_FILESYSTEM: "tabenhance-show-in-filesystem",
   RELOAD: "tabenhance-reload",
+  COPY_REFERENCE: "tabenhance-copy-to-clipboard",
 };
 
 export default class TabEnhance {
@@ -93,13 +94,19 @@ export default class TabEnhance {
     const menupopup = element as Element;
     if (this.menuItemsExist(menupopup)) return;
 
-    this.createMenuItem(menupopup, {
+    this.addMenuItemToPopup(menupopup, {
+      id: MENU_ITEM_IDS.COPY_REFERENCE,
+      label: getString(MENU_ITEM_IDS.COPY_REFERENCE),
+      handler: () => this.copyReference(tabInfo.tabId),
+    });
+
+    this.addMenuItemToPopup(menupopup, {
       id: MENU_ITEM_IDS.SHOW_IN_FILESYSTEM,
       label: getString(MENU_ITEM_IDS.SHOW_IN_FILESYSTEM),
       handler: () => this.showInFilesystem(tabInfo.tabId),
     });
 
-    this.createMenuItem(menupopup, {
+    this.addMenuItemToPopup(menupopup, {
       id: MENU_ITEM_IDS.RELOAD,
       label: getString(MENU_ITEM_IDS.RELOAD),
       handler: () => this.reloadTab(tabInfo.tabId),
@@ -112,7 +119,7 @@ export default class TabEnhance {
     );
   }
 
-  private createMenuItem(element: Element, config: MenuItemConfig) {
+  private addMenuItemToPopup(element: Element, config: MenuItemConfig) {
     const menuItem = this.ztoolkit.createXULElement(this.document, "menuitem");
     menuItem.setAttribute("id", config.id);
     menuItem.setAttribute("label", config.label);
@@ -184,6 +191,64 @@ export default class TabEnhance {
       await (Zotero as any).FileHandlers.open(item);
     } catch (error) {
       this.ztoolkit.log("Error reloading tab:", error);
+    }
+  }
+
+  private copyReference(tabId: string | null) {
+    const { tab } = this.window.Zotero_Tabs._getTab(tabId);
+    if (!tab || (tab.type !== "reader" && tab.type !== "reader-unloaded")) {
+      return;
+    }
+
+    const itemID = tab.data.itemID;
+    const item = Zotero.Items.get(itemID).topLevelItem;
+
+    let items = [item];
+
+    let format = Zotero.QuickCopy.getFormatFromURL(
+      Zotero.QuickCopy.lastActiveURL,
+    );
+    if (items.every((item) => item.isNote() || item.isAttachment())) {
+      format = Zotero.QuickCopy.getNoteFormat();
+    }
+    format = Zotero.QuickCopy.unserializeSetting(format);
+    // this.ztoolkit.log("copyReference: format", format);
+
+    // In bibliography mode, remove notes and attachments
+    if (format.mode === "bibliography") {
+      items = items.filter((item) => item.isRegularItem());
+    }
+
+    if (!items.length) {
+      this.ztoolkit.log("copyReference: items is empty!");
+      return;
+    }
+
+    const locale = format.locale
+      ? format.locale
+      : Zotero.Prefs.get("export.quickCopy.locale");
+
+    // this.ztoolkit.log("copyReference: locale", locale);
+
+    if (format.mode == "bibliography") {
+      this.window.Zotero_File_Interface.copyItemsToClipboard(
+        items,
+        format.id,
+        locale,
+        format.contentType == "html",
+        false,
+      );
+      this.ztoolkit.log(
+        "copyReference: items copied to clipboard bibliography",
+        items,
+      );
+    } else if (format.mode === "export") {
+      // Copy citations doesn't work in export mode
+      this.ztoolkit.log(
+        "copyReference: items copied to clipboard export",
+        items,
+      );
+      this.window.Zotero_File_Interface.exportItemsToClipboard(items, format);
     }
   }
 }

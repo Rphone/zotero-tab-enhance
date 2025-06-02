@@ -11,3 +11,4 @@ tabpanel-lib-tab-label = 库标签
 tabpanel-reader-tab-label = 阅读器标签
 tabenhance-show-in-filesystem = 在文件管理器中显示
 tabenhance-reload = 重新加载标签页
+tabenhance-copy-to-clipboard = 复制引用到剪切板

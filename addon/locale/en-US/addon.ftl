@@ -11,3 +11,4 @@ tabpanel-lib-tab-label = Lib Tab
 tabpanel-reader-tab-label = Reader Tab
 tabenhance-show-in-filesystem = Show in File Manager
 tabenhance-reload = Reload Tab
+tabenhance-copy-to-clipboard = Copy Reference
