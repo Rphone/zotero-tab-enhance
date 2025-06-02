@@ -11,6 +11,7 @@ Tab Enhance is a Zotero 7 plugin that adds more convenient features to Zotero ta
 
 - **Show in Filesystem**: Right-click on a document tab to quickly locate the current document in the filesystem (avoiding the two-step jump from Zotero item to filesystem)
 - **Reload Tab**: Right-click on a document tab to reload the tab (convenient for synchronizing document modifications from external editors)
+- **Copy Citation**: Right-click on a document tab to copy the citation to the clipboard (the citation format follows the configuration of `Edit -> Preferences -> Export`)
 - _(More features in development...)_
 
 ## Installation
@@ -43,7 +44,17 @@ Tab Enhance is a Zotero 7 plugin that adds more convenient features to Zotero ta
 
    #### Feature Screenshot
 
-   ![reload1](../assets/reload_en.gif)
+   ![reload1](../assets/reload_1.gif)
+
+### Copy Citation
+
+1. Open a PDF or other document in Zotero
+2. Right-click on the document's tab
+3. Select "Copy Citation" option
+4. The citation format follows the configuration of `Edit -> Preferences -> Export`
+
+   #### Feature Screenshot
+   ![copy_ref](../assets/copy_ref_en.gif)
 
 ## Feedback
 
