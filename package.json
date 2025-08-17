@@ -34,13 +34,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@types/node": "^22.14.0",
-    "eslint": "^9.32.0",
+    "@types/node": "^22.17.2",
+    "eslint": "^9.33.0",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
+    "typescript-eslint": "^8.39.1",
     "zotero-plugin-scaffold": "^0.8.0",
-    "zotero-types": "^4.0.0-beta.3"
+    "zotero-types": "^4.0.5"
   },
   "prettier": {
     "printWidth": 80,

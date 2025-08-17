@@ -6,9 +6,13 @@ import {
   UIExampleFactory,
 } from "./modules/examples";
 import { getString, initLocale } from "./utils/locale";
-import { registerPrefsScripts } from "./modules/preferenceScript";
+import {
+  initPreference,
+  registerPrefsScripts,
+} from "./modules/preferenceScript";
 import { createZToolkit } from "./utils/ztoolkit";
 import TabEnhance from "./modules/tabEnhance";
+import { getPref } from "./utils/prefs";
 async function onStartup() {
   await Promise.all([
     Zotero.initializationPromise,
@@ -17,6 +21,10 @@ async function onStartup() {
   ]);
 
   initLocale();
+
+  // init preferences
+  initPreference();
+
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
@@ -83,7 +91,10 @@ async function onNotify(
 async function onPrefsEvent(type: string, data: { [key: string]: any }) {
   switch (type) {
     case "load":
-      registerPrefsScripts(data.window);
+      // registerPrefsScripts(data.window);
+      // ztoolkit.log("onPrefsEvent", "load", data);
+      // ztoolkit.log(getPref("enableCopyReference"));
+
       break;
     default:
       return;

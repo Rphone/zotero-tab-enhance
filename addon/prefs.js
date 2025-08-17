@@ -1,3 +1,4 @@
 /* eslint-disable no-undef */
-pref("enable", true);
-pref("input", "This is input");
+pref("__prefsPrefix__.enableCopyReference", true);
+pref("__prefsPrefix__.enableGoToAttachment", true);
+pref("__prefsPrefix__.enableReloadTab", true);

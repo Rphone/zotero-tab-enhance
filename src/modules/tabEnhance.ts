@@ -1,6 +1,7 @@
 import { ZoteroToolkit } from "zotero-plugin-toolkit";
 import { getString } from "../utils/locale";
 import { get } from "http";
+import { getPref } from "../utils/prefs";
 interface TabInfo {
   tabId: string | null;
   isSelected: boolean;
@@ -27,6 +28,7 @@ export default class TabEnhance {
   private handleContextMenuEvent!: (event: Event) => void;
   private handlepopupshowingEvent!: (event: Event) => void;
   private ztoolkit: ZoteroToolkit = ztoolkit;
+  private availableMenuItems: MenuItemConfig[] = [];
 
   constructor(window: Window) {
     this.window = window;
@@ -90,33 +92,46 @@ export default class TabEnhance {
     return { tabId, isSelected, tabTitle };
   }
 
-  private addExtraMenuItems(element: EventTarget | null, tabInfo: TabInfo) {
-    const menupopup = element as Element;
-    if (this.menuItemsExist(menupopup)) return;
+  private updateAvailableMenuItems(tabInfo: TabInfo) {
+    this.availableMenuItems = new Array<MenuItemConfig>();
 
-    this.addMenuItemToPopup(menupopup, {
-      id: MENU_ITEM_IDS.COPY_REFERENCE,
-      label: getString(MENU_ITEM_IDS.COPY_REFERENCE),
-      handler: () => this.copyReference(tabInfo.tabId),
-    });
-
-    this.addMenuItemToPopup(menupopup, {
-      id: MENU_ITEM_IDS.SHOW_IN_FILESYSTEM,
-      label: getString(MENU_ITEM_IDS.SHOW_IN_FILESYSTEM),
-      handler: () => this.showInFilesystem(tabInfo.tabId),
-    });
-
-    this.addMenuItemToPopup(menupopup, {
-      id: MENU_ITEM_IDS.RELOAD,
-      label: getString(MENU_ITEM_IDS.RELOAD),
-      handler: () => this.reloadTab(tabInfo.tabId),
-    });
+    if (getPref("enableCopyReference")) {
+      this.availableMenuItems.push({
+        id: MENU_ITEM_IDS.COPY_REFERENCE,
+        label: getString(MENU_ITEM_IDS.COPY_REFERENCE),
+        handler: () => this.copyReference(tabInfo.tabId),
+      });
+    }
+    if (getPref("enableGoToAttachment")) {
+      this.availableMenuItems.push({
+        id: MENU_ITEM_IDS.SHOW_IN_FILESYSTEM,
+        label: getString(MENU_ITEM_IDS.SHOW_IN_FILESYSTEM),
+        handler: () => this.showInFilesystem(tabInfo.tabId),
+      });
+    }
+    if (getPref("enableReloadTab")) {
+      this.availableMenuItems.push({
+        id: MENU_ITEM_IDS.RELOAD,
+        label: getString(MENU_ITEM_IDS.RELOAD),
+        handler: () => this.reloadTab(tabInfo.tabId),
+      });
+    }
   }
 
-  private menuItemsExist(menupopup: Element): boolean {
-    return (
-      menupopup.querySelector(`#${MENU_ITEM_IDS.SHOW_IN_FILESYSTEM}`) !== null
+  private addExtraMenuItems(element: EventTarget | null, tabInfo: TabInfo) {
+    const menupopup = element as Element;
+
+    this.updateAvailableMenuItems(tabInfo);
+
+    if (this.availableMenuItems.length === 0) return;
+
+    menupopup.appendChild(
+      this.ztoolkit.createXULElement(this.document, "menuseparator"),
     );
+
+    this.availableMenuItems.forEach((config) => {
+      this.addMenuItemToPopup(menupopup, config);
+    });
   }
 
   private addMenuItemToPopup(element: Element, config: MenuItemConfig) {
