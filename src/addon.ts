@@ -27,7 +27,8 @@ class Addon {
   // APIs
   public api: object;
 
-  public tab_enhance?: TabEnhance;
+  // Store TabEnhance instances for each window
+  public tabEnhanceInstances: Map<Window, TabEnhance>;
 
   constructor() {
     this.data = {
@@ -39,6 +40,7 @@ class Addon {
     };
     this.hooks = hooks;
     this.api = {};
+    this.tabEnhanceInstances = new Map();
   }
 }
 

@@ -3,6 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 export type FluentMessageId =
+  | 'copy-to-clipboard'
   | 'item-info-row-example-label'
   | 'item-section-example1-head-text'
   | 'item-section-example1-sidenav-tooltip'
@@ -21,10 +22,9 @@ export type FluentMessageId =
   | 'prefs-table-detail'
   | 'prefs-table-title'
   | 'prefs-title'
+  | 'reload'
+  | 'show-in-filesystem'
   | 'startup-begin'
   | 'startup-finish'
-  | 'tabenhance-copy-to-clipboard'
-  | 'tabenhance-reload'
-  | 'tabenhance-show-in-filesystem'
   | 'tabpanel-lib-tab-label'
   | 'tabpanel-reader-tab-label';

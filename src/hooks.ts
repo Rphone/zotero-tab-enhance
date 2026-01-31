@@ -42,17 +42,39 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
-  addon.tab_enhance = new TabEnhance(win);
-  addon.tab_enhance.init();
+  // Check if instance already exists for this window
+  if (!addon.tabEnhanceInstances.has(win)) {
+    const tabEnhance = new TabEnhance(win);
+    tabEnhance.init();
+    addon.tabEnhanceInstances.set(win, tabEnhance);
+    ztoolkit.log("TabEnhance instance created for window");
+  } else {
+    ztoolkit.log(
+      "TabEnhance instance already exists for this window, skipping initialization",
+    );
+  }
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
+  // Destroy TabEnhance instance for this specific window
+  const tabEnhance = addon.tabEnhanceInstances.get(win);
+  if (tabEnhance) {
+    tabEnhance.destroy();
+    addon.tabEnhanceInstances.delete(win);
+    ztoolkit.log("TabEnhance instance destroyed for window");
+  }
+
   ztoolkit.unregisterAll();
-  addon.tab_enhance?.destroy();
   addon.data.dialog?.window?.close();
 }
 
 function onShutdown(): void {
+  // Destroy all TabEnhance instances
+  addon.tabEnhanceInstances.forEach((tabEnhance) => {
+    tabEnhance.destroy();
+  });
+  addon.tabEnhanceInstances.clear();
+
   ztoolkit.unregisterAll();
   addon.data.dialog?.window?.close();
   // Remove addon object
