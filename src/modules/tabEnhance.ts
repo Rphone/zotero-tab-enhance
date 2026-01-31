@@ -15,9 +15,9 @@ interface MenuItemConfig {
 }
 
 const MENU_ITEM_IDS = {
-  SHOW_IN_FILESYSTEM: "tabenhance-show-in-filesystem",
-  RELOAD: "tabenhance-reload",
-  COPY_REFERENCE: "tabenhance-copy-to-clipboard",
+  SHOW_IN_FILESYSTEM: "show-in-filesystem",
+  RELOAD: "reload",
+  COPY_REFERENCE: "copy-to-clipboard",
 };
 
 export default class TabEnhance {
@@ -40,7 +40,10 @@ export default class TabEnhance {
   }
 
   public init(): void {
-    if (this.initialized) return;
+    if (this.initialized) {
+      this.ztoolkit.log("TabEnhance module already initialized, skipping");
+      return;
+    }
     this.registerEventHandlers();
     this.removeAllEventListeners();
     this.attachEventListeners();
@@ -49,7 +52,10 @@ export default class TabEnhance {
   }
 
   destroy() {
-    if (!this.initialized) return;
+    if (!this.initialized) {
+      this.ztoolkit.log("TabEnhance module not initialized, skipping destroy");
+      return;
+    }
     this.removeAllEventListeners();
     this.initialized = false;
     this.ztoolkit.log("TabEnhance module destroyed successfully");
