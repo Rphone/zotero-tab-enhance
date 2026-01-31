@@ -18,7 +18,7 @@ const MENU_ITEM_IDS = {
   SHOW_IN_FILESYSTEM: "show-in-filesystem",
   RELOAD: "reload",
   COPY_REFERENCE: "copy-to-clipboard",
-};
+} as const;
 
 export default class TabEnhance {
   private window: Window;
