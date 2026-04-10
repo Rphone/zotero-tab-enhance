@@ -83,9 +83,10 @@ export default class VerticalTabSidebar {
   private groupNamePanelConfirmed = false;
   private readonly displayItemCache = new Map<string, any | null>();
   private readonly itemFieldCache = new Map<string, string>();
+  private isResizing: boolean = false;
 
   private readonly handleResizeEnd = () => {
-    if (!this.sidebar || this.collapsed) {
+    if (!this.sidebar || this.collapsed || !this.isResizing) {
       return;
     }
     const width = Math.round(this.sidebar.getBoundingClientRect().width);
@@ -94,6 +95,7 @@ export default class VerticalTabSidebar {
       this.applySidebarWidth();
       this.persistSidebarState();
     }
+    this.isResizing = false;
   };
 
   private readonly handleListDragOver = (event: DragEvent) => {
@@ -525,6 +527,14 @@ export default class VerticalTabSidebar {
       attributes: {
         id: `${config.addonRef}-vertical-tabs-splitter`,
       },
+      listeners: [
+        {
+          type: "mousedown",
+          listener: () => {
+            this.isResizing = true;
+          },
+        },
+      ],
     }) as XULElement;
 
     deckParent.insertBefore(splitter, deck);
