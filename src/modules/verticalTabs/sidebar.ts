@@ -108,6 +108,25 @@ export default class VerticalTabSidebar {
     this.isResizing = false;
   };
 
+  private readonly handleGlobalKeyDown = (event: KeyboardEvent) => {
+    // Ctrl+B: Toggle sidebar visibility
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+      // Don't toggle if user is typing in search input or other form elements
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleCollapsed();
+    }
+  };
+
   private readonly handleListDragOver = (event: DragEvent) => {
     if (!this.listContainer) {
       return;
@@ -247,6 +266,7 @@ export default class VerticalTabSidebar {
     });
     this.window.addEventListener("mouseup", this.handleResizeEnd);
     this.window.addEventListener("dragend", this.handleWindowDragEnd, true);
+    this.window.addEventListener("keydown", this.handleGlobalKeyDown, true);
     ztoolkit.log("VerticalTabSidebar initialized");
   }
 
@@ -279,6 +299,7 @@ export default class VerticalTabSidebar {
     this.pendingMemberOpenPromises.clear();
     this.window.removeEventListener("mouseup", this.handleResizeEnd);
     this.window.removeEventListener("dragend", this.handleWindowDragEnd, true);
+    this.window.removeEventListener("keydown", this.handleGlobalKeyDown, true);
 
     this.sidebar?.remove();
     this.splitter?.remove();
