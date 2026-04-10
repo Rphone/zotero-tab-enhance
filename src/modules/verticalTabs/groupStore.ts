@@ -406,6 +406,7 @@ export default class TabGroupStore {
       a.itemID === b.itemID &&
       a.parentItemID === b.parentItemID &&
       a.isOpen === b.isOpen &&
+      a.openedAt === b.openedAt &&
       a.sourceTabKey === b.sourceTabKey &&
       a.tabId === b.tabId &&
       a.iconKey === b.iconKey
