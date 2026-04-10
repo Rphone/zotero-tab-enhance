@@ -79,7 +79,7 @@ export default class TabGroupStore {
           ...nextMember,
           id: member.id,
         };
-        if (JSON.stringify(normalizedMember) !== JSON.stringify(member)) {
+        if (!this.areMembersEqual(normalizedMember, member)) {
           changed = true;
         }
         return normalizedMember;
@@ -396,6 +396,20 @@ export default class TabGroupStore {
       return `Group ${tab.itemID}`;
     }
     return tab.title.slice(0, 32) || "New Group";
+  }
+
+  private areMembersEqual(a: VirtualGroupMember, b: VirtualGroupMember): boolean {
+    return (
+      a.key === b.key &&
+      a.title === b.title &&
+      a.type === b.type &&
+      a.itemID === b.itemID &&
+      a.parentItemID === b.parentItemID &&
+      a.isOpen === b.isOpen &&
+      a.sourceTabKey === b.sourceTabKey &&
+      a.tabId === b.tabId &&
+      a.iconKey === b.iconKey
+    );
   }
 
   private makeMemberFromTab(
