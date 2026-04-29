@@ -5,6 +5,7 @@
 export type FluentMessageId =
   | 'add-to-group'
   | 'change-group-color'
+  | 'close-group-all'
   | 'close-tab'
   | 'collapse-group'
   | 'copy-to-clipboard'
@@ -12,7 +13,6 @@ export type FluentMessageId =
   | 'create-group-from-selection'
   | 'dissolve-group'
   | 'expand-group'
-  | 'expand-only-group'
   | 'group-color'
   | 'group-name-prompt'
   | 'item-info-row-example-label'

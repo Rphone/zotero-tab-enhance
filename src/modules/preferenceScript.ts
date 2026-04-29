@@ -76,7 +76,9 @@ function bindPrefEvents() {
   });
 
   DISPLAY_SELECT_CONFIG.forEach(({ id, key }) => {
-    const select = prefsWindow.document.getElementById(id) as HTMLSelectElement | null;
+    const select = prefsWindow.document.getElementById(
+      id,
+    ) as HTMLSelectElement | null;
     if (!select) {
       return;
     }
@@ -88,7 +90,9 @@ function bindPrefEvents() {
   });
 
   GROUP_COLOR_INPUT_CONFIG.forEach(({ id, key }) => {
-    const input = prefsWindow.document.getElementById(id) as HTMLInputElement | null;
+    const input = prefsWindow.document.getElementById(
+      id,
+    ) as HTMLInputElement | null;
     if (!input) {
       return;
     }
@@ -101,12 +105,14 @@ function bindPrefEvents() {
     input.addEventListener("change", syncColor);
   });
 
-  prefsWindow.document.getElementById(RESET_BUTTON_ID)?.addEventListener("click", async () => {
-    await addon.hooks.onPrefsEvent("resetPluginData", {
-      window: prefsWindow,
+  prefsWindow.document
+    .getElementById(RESET_BUTTON_ID)
+    ?.addEventListener("click", async () => {
+      await addon.hooks.onPrefsEvent("resetPluginData", {
+        window: prefsWindow,
+      });
+      syncPrefControls(prefsWindow);
     });
-    syncPrefControls(prefsWindow);
-  });
 
   const prefsState = addon.data.prefs;
   if (prefsState) {
@@ -130,7 +136,9 @@ function syncPrefControls(window: Window) {
   });
 
   DISPLAY_SELECT_CONFIG.forEach(({ id, key }) => {
-    const select = window.document.getElementById(id) as HTMLSelectElement | null;
+    const select = window.document.getElementById(
+      id,
+    ) as HTMLSelectElement | null;
     if (!select) {
       return;
     }
@@ -146,4 +154,9 @@ function syncPrefControls(window: Window) {
   });
 }
 
-export { initPreference, registerPrefsScripts, bindPrefEvents, syncPrefControls };
+export {
+  initPreference,
+  registerPrefsScripts,
+  bindPrefEvents,
+  syncPrefControls,
+};

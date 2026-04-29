@@ -1,10 +1,18 @@
 import { config } from "../../../package.json";
 import { getString } from "../../utils/locale";
-import { getGroupColorPalette, getJSONPref, getPref, setJSONPref } from "../../utils/prefs";
+import {
+  getGroupColorPalette,
+  getJSONPref,
+  getPref,
+  setJSONPref,
+} from "../../utils/prefs";
 import TabTrackerService from "./tabTracker";
 import TabCommandController, { TabCommandItem } from "./tabCommands";
 import TabGroupStore from "./groupStore";
-import { setCollapsibleMeasuredHeight, syncCollapsibleState } from "./collapsible";
+import {
+  setCollapsibleMeasuredHeight,
+  syncCollapsibleState,
+} from "./collapsible";
 import {
   LIBRARY_TAB_ID,
   SidebarState,
@@ -487,7 +495,10 @@ export default class VerticalTabSidebar {
       },
     }) as unknown as XULPopupElement;
 
-    const groupNamePanel = ztoolkit.createXULElement(this.document, "panel") as unknown as XULPopupElement;
+    const groupNamePanel = ztoolkit.createXULElement(
+      this.document,
+      "panel",
+    ) as unknown as XULPopupElement;
     groupNamePanel.setAttribute("id", `${config.addonRef}-group-name-panel`);
     groupNamePanel.setAttribute("class", "tab-enhance-group-name-popup");
     groupNamePanel.setAttribute("type", "arrow");
@@ -819,7 +830,9 @@ export default class VerticalTabSidebar {
           color:
             typeof group.color === "string" && group.color.trim()
               ? group.color
-              : getGroupColorPalette()[groupIndex % getGroupColorPalette().length],
+              : getGroupColorPalette()[
+                  groupIndex % getGroupColorPalette().length
+                ],
           collapsed: Boolean(group.collapsed),
           sortMode:
             group.sortMode === "recent" ||
@@ -1258,11 +1271,7 @@ export default class VerticalTabSidebar {
       }
 
       members.appendChild(
-        this.renderGroupMemberRow(
-          member,
-          renderable.group.id,
-          selectedTabKey,
-        ),
+        this.renderGroupMemberRow(member, renderable.group.id, selectedTabKey),
       );
 
       if (
@@ -1314,7 +1323,6 @@ export default class VerticalTabSidebar {
     }, SIDEBAR.ANIMATION_DURATION_MS);
     this.pendingGroupToggleTimers.set(groupId, timerId);
   }
-
 
   private applyGroupMembersVisibility(
     members: HTMLDivElement,
@@ -1450,7 +1458,9 @@ export default class VerticalTabSidebar {
       return false;
     }
 
-    const visibleGroupIds = this.groupStore.getGroups().map((group) => group.id);
+    const visibleGroupIds = this.groupStore
+      .getGroups()
+      .map((group) => group.id);
     const sourceIndex = visibleGroupIds.indexOf(sourceGroupId);
     const targetIndex = visibleGroupIds.indexOf(targetGroupId);
     if (sourceIndex < 0 || targetIndex < 0) {
@@ -1816,7 +1826,7 @@ export default class VerticalTabSidebar {
     const groupId = row.dataset.groupId ?? null;
     const memberKey = row.dataset.memberKey ?? null;
     if (groupId && memberKey) {
-    this.hideContextMenu();
+      this.hideContextMenu();
       this.draggedTabKey = null;
       this.draggedGroupId = groupId;
       this.draggedMemberKey = memberKey;
@@ -2068,7 +2078,6 @@ export default class VerticalTabSidebar {
     this.groupStore.createGroupFromTab(this.normalizeTab(selectedTab), name);
   }
 
-
   private openGroupNamePanel(
     defaultValue: string,
     onSubmit: (name: string) => void,
@@ -2144,7 +2153,11 @@ export default class VerticalTabSidebar {
       return false;
     }
 
-    const openPromise = this.openGroupMemberAttachment(member, groupId, memberKey);
+    const openPromise = this.openGroupMemberAttachment(
+      member,
+      groupId,
+      memberKey,
+    );
     this.pendingMemberOpenPromises.set(memberKey, openPromise);
     try {
       const result = await openPromise;
@@ -2241,6 +2254,40 @@ export default class VerticalTabSidebar {
     this.tracker.scheduleDelayedReconcile(
       `group-open-all:${groupId}`,
       [120, 320, 640],
+    );
+  }
+
+  private closeGroupMembers(groupId: string): void {
+    const group = this.groupStore.findGroupById(groupId);
+    if (!group) {
+      return;
+    }
+
+    const memberKeys = new Set(group.members.map((member) => member.key));
+    const tabIdsToClose = Array.from(
+      new Set(
+        this.tracker
+          .getTabs()
+          .map((tab) => this.normalizeTab(tab))
+          .filter((tab) => this.shouldRenderTab(tab))
+          .filter((tab) =>
+            memberKeys.has(this.groupStore.makeMemberKeyFromTab(tab)),
+          )
+          .map((tab) => tab.tabId)
+          .filter((tabId): tabId is string => Boolean(tabId)),
+      ),
+    );
+
+    if (!tabIdsToClose.length) {
+      return;
+    }
+
+    tabIdsToClose.forEach((tabId) => {
+      this.commandController.close(tabId);
+    });
+    this.tracker.scheduleDelayedReconcile(
+      `group-close-all:${groupId}`,
+      [80, 220, 480],
     );
   }
 
@@ -2347,8 +2394,8 @@ export default class VerticalTabSidebar {
     this.appendMenuItem(getString("open-group-only"), async () => {
       await this.openGroupMembers(group.id, { closeOthers: true });
     });
-    this.appendMenuItem(getString("expand-only-group"), () => {
-      this.groupStore.expandOnly(group.id);
+    this.appendMenuItem(getString("close-group-all"), () => {
+      this.closeGroupMembers(group.id);
     });
     this.appendSeparator();
     this.appendMenuItem(
@@ -2371,7 +2418,7 @@ export default class VerticalTabSidebar {
     return this.createMenuItem(
       item.label,
       async () => {
-    this.hideContextMenu();
+        this.hideContextMenu();
         if (item.disabled) {
           return;
         }
@@ -2463,7 +2510,7 @@ export default class VerticalTabSidebar {
     const menuItem = ztoolkit.createXULElement(this.document, "menuitem");
     menuItem.setAttribute("label", label);
     menuItem.addEventListener("command", async () => {
-    this.hideContextMenu();
+      this.hideContextMenu();
       if (disabled) {
         return;
       }
@@ -2565,7 +2612,6 @@ export default class VerticalTabSidebar {
     );
   }
 
-
   private commitGroupHeaderDrop(
     targetGroupId: string | null,
     position: DropPosition,
@@ -2577,7 +2623,9 @@ export default class VerticalTabSidebar {
       return;
     }
 
-    if (this.isNoOpGroupHeaderDropTarget(targetGroupId, position, sourceGroupId)) {
+    if (
+      this.isNoOpGroupHeaderDropTarget(targetGroupId, position, sourceGroupId)
+    ) {
       this.clearDragState();
       return;
     }
@@ -2851,7 +2899,6 @@ export default class VerticalTabSidebar {
     return row ? (row as HTMLDivElement) : null;
   }
 
-
   private resolveGroupHeaderDropTargetFromPoint(
     clientY: number,
   ): { groupId: string | null; position: DropPosition } | null {
@@ -2860,7 +2907,9 @@ export default class VerticalTabSidebar {
     }
 
     const groups = Array.from(
-      this.listContainer.querySelectorAll('.tab-enhance-vertical-group[data-group-id]'),
+      this.listContainer.querySelectorAll(
+        ".tab-enhance-vertical-group[data-group-id]",
+      ),
     ) as HTMLDivElement[];
     if (!groups.length) {
       return null;
@@ -2957,7 +3006,10 @@ export default class VerticalTabSidebar {
   }
 
   private getDisplayTitle(
-    input: Pick<TrackedTab | VirtualGroupMember, "title" | "itemID" | "parentItemID">,
+    input: Pick<
+      TrackedTab | VirtualGroupMember,
+      "title" | "itemID" | "parentItemID"
+    >,
   ): string {
     const mode = getPref("verticalTabTitleMode");
     if (mode === "shortTitle") {
@@ -3058,7 +3110,9 @@ export default class VerticalTabSidebar {
     }
     for (const field of fields) {
       const cacheKey =
-        typeof item.id === "number" ? `${item.id}:${field}` : `unknown:${field}`;
+        typeof item.id === "number"
+          ? `${item.id}:${field}`
+          : `unknown:${field}`;
       if (this.itemFieldCache.has(cacheKey)) {
         const cachedValue = this.itemFieldCache.get(cacheKey);
         if (cachedValue) {

@@ -323,25 +323,6 @@ export default class TabGroupStore {
     }
   }
 
-  public expandOnly(groupId: string): void {
-    let changed = false;
-    this.groups = this.groups.map((group) => {
-      const nextCollapsed = group.id === groupId ? false : true;
-      if (group.collapsed === nextCollapsed) {
-        return group;
-      }
-      changed = true;
-      return {
-        ...group,
-        collapsed: nextCollapsed,
-      };
-    });
-
-    if (changed) {
-      this.emit();
-    }
-  }
-
   public setColor(groupId: string, color: string): void {
     let changed = false;
     this.groups = this.groups.map((group) => {
