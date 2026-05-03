@@ -57,6 +57,10 @@ type AggregateSection = {
   tabs: TrackedTab[];
 };
 
+type InlineGroupNameEditor =
+  | { kind: "create"; sourceTab: TrackedTab; value: string }
+  | { kind: "rename"; groupId: string; value: string };
+
 export default class VerticalTabSidebar {
   private readonly window: _ZoteroTypes.MainWindow;
   private readonly document: Document;
@@ -78,8 +82,6 @@ export default class VerticalTabSidebar {
   private listContainer?: HTMLElement;
   private searchInput?: HTMLInputElement;
   private contextMenu?: XULPopupElement;
-  private groupNamePanel?: XULPopupElement;
-  private groupNameInput?: HTMLInputElement;
   private stylesheet?: HTMLElement;
   private unsubscribeTracker?: () => void;
   private unsubscribeGroupStore?: () => void;
@@ -96,9 +98,7 @@ export default class VerticalTabSidebar {
   private dragOverPosition: DropPosition | null = null;
   private pendingGroupToggleTimers = new Map<string, number>();
   private pendingMemberOpenPromises = new Map<string, Promise<boolean>>();
-  private lastContextMenuPoint = { x: 0, y: 0 };
-  private pendingGroupNameSubmit?: ((name: string) => void) | null;
-  private groupNamePanelConfirmed = false;
+  private groupNameEditor: InlineGroupNameEditor | null = null;
   private readonly displayItemCache = new Map<string, any | null>();
   private readonly itemFieldCache = new Map<string, string>();
   private isResizing: boolean = false;
@@ -347,7 +347,6 @@ export default class VerticalTabSidebar {
     this.sidebar?.remove();
     this.splitter?.remove();
     this.contextMenu?.remove();
-    this.groupNamePanel?.remove();
     this.stylesheet?.remove();
     this.sidebar = undefined;
     this.splitter = undefined;
@@ -359,9 +358,8 @@ export default class VerticalTabSidebar {
     this.listContainer = undefined;
     this.searchInput = undefined;
     this.contextMenu = undefined;
-    this.groupNamePanel = undefined;
-    this.groupNameInput = undefined;
     this.stylesheet = undefined;
+    this.groupNameEditor = null;
     this.trackedTabsByKey.clear();
     this.trackedTabsByMemberKey.clear();
     this.clearDisplayMetadataCache();
@@ -530,60 +528,6 @@ export default class VerticalTabSidebar {
       },
     }) as unknown as XULPopupElement;
 
-    const groupNamePanel = ztoolkit.createXULElement(
-      this.document,
-      "panel",
-    ) as unknown as XULPopupElement;
-    groupNamePanel.setAttribute("id", `${config.addonRef}-group-name-panel`);
-    groupNamePanel.setAttribute("class", "tab-enhance-group-name-popup");
-    groupNamePanel.setAttribute("type", "arrow");
-    groupNamePanel.setAttribute("flip", "both");
-    groupNamePanel.setAttribute("consumeoutsideclicks", "true");
-    groupNamePanel.setAttribute("noautofocus", "false");
-    const groupNamePanelBody = ztoolkit.UI.createElement(this.document, "div", {
-      namespace: "html",
-      classList: ["tab-enhance-group-name-panel"],
-    }) as HTMLDivElement;
-    const groupNameInput = ztoolkit.UI.createElement(this.document, "input", {
-      namespace: "html",
-      classList: ["tab-enhance-group-name-input"],
-      attributes: {
-        type: "text",
-        placeholder: getString("group-name-prompt"),
-      },
-      listeners: [
-        {
-          type: "keydown",
-          listener: (event: Event) => {
-            const keyboardEvent = event as KeyboardEvent;
-            if (keyboardEvent.key === "Enter") {
-              keyboardEvent.preventDefault();
-              keyboardEvent.stopPropagation();
-              this.confirmGroupNamePanel();
-              return;
-            }
-            if (keyboardEvent.key === "Escape") {
-              keyboardEvent.preventDefault();
-              keyboardEvent.stopPropagation();
-              this.cancelGroupNamePanel();
-            }
-          },
-        },
-      ],
-    }) as HTMLInputElement;
-    groupNamePanel.addEventListener("popupshown", () => {
-      this.groupNameInput?.focus();
-      this.groupNameInput?.select();
-    });
-    groupNamePanel.addEventListener("popuphidden", () => {
-      if (!this.groupNamePanelConfirmed) {
-        this.pendingGroupNameSubmit = null;
-      }
-      this.groupNamePanelConfirmed = false;
-    });
-    groupNamePanelBody.appendChild(groupNameInput);
-    groupNamePanel.appendChild(groupNamePanelBody);
-
     header.appendChild(toggleButton);
     header.appendChild(headerText);
     header.appendChild(countBadge);
@@ -597,7 +541,6 @@ export default class VerticalTabSidebar {
       this.document.getElementById("mainPopupSet") ??
       this.document.documentElement;
     popupHost?.appendChild(contextMenu);
-    popupHost?.appendChild(groupNamePanel);
 
     const splitter = ztoolkit.UI.createElement(this.document, "splitter", {
       classList: ["tab-enhance-vertical-tabs-splitter"],
@@ -627,8 +570,6 @@ export default class VerticalTabSidebar {
     this.searchInput = searchInput;
     this.listContainer = listContainer;
     this.contextMenu = contextMenu;
-    this.groupNamePanel = groupNamePanel;
-    this.groupNameInput = groupNameInput;
     this.applySidebarWidth();
     return true;
   }
@@ -946,7 +887,9 @@ export default class VerticalTabSidebar {
     }
 
     const hasDefaultContent =
-      renderableGroups.length > 0 || visibleUngroupedTabs.length > 0;
+      renderableGroups.length > 0 ||
+      visibleUngroupedTabs.length > 0 ||
+      Boolean(this.groupNameEditor);
     const hasAggregateContent = aggregateSections.some(
       (section) => section.tabs.length > 0,
     );
@@ -971,6 +914,10 @@ export default class VerticalTabSidebar {
     }
 
     if (this.viewMode === "default") {
+      if (this.groupNameEditor?.kind === "create") {
+        listContainer.appendChild(this.renderCreateGroupEditor());
+      }
+
       renderableGroups.forEach((renderableGroup) => {
         if (
           renderableGroup.group.id === this.dragOverHeaderGroupId &&
@@ -1168,13 +1115,16 @@ export default class VerticalTabSidebar {
     container.style.setProperty("--group-color", renderable.group.color);
     container.classList.toggle("is-expanded", !renderable.group.collapsed);
     container.classList.toggle("is-collapsed", renderable.group.collapsed);
+    const isEditingGroupName =
+      this.groupNameEditor?.kind === "rename" &&
+      this.groupNameEditor.groupId === renderable.group.id;
 
     const header = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
       classList: ["tab-enhance-vertical-group-header"],
       properties: {
         title: renderable.group.name,
-        draggable: true,
+        draggable: !isEditingGroupName,
       },
       attributes: {
         role: "button",
@@ -1184,6 +1134,9 @@ export default class VerticalTabSidebar {
         {
           type: "click",
           listener: (event: Event) => {
+            if (isEditingGroupName) {
+              return;
+            }
             event.preventDefault();
             event.stopPropagation();
             this.requestGroupCollapsedToggle(
@@ -1197,6 +1150,9 @@ export default class VerticalTabSidebar {
           type: "keydown",
           listener: (event: Event) => {
             const keyboardEvent = event as KeyboardEvent;
+            if (isEditingGroupName) {
+              return;
+            }
             if (keyboardEvent.key !== "Enter" && keyboardEvent.key !== " ") {
               return;
             }
@@ -1242,7 +1198,7 @@ export default class VerticalTabSidebar {
     }) as HTMLDivElement;
 
     header.dataset.groupId = renderable.group.id;
-    header.dataset.sortable = "true";
+    header.dataset.sortable = isEditingGroupName ? "false" : "true";
     header.dataset.sortKind = "groups";
     if (renderable.group.id === this.draggedHeaderGroupId) {
       header.classList.add("is-dragging");
@@ -1261,13 +1217,15 @@ export default class VerticalTabSidebar {
       classList: ["tab-enhance-vertical-group-color"],
     }) as HTMLSpanElement;
 
-    const title = ztoolkit.UI.createElement(this.document, "span", {
-      namespace: "html",
-      classList: ["tab-enhance-vertical-group-title"],
-      properties: {
-        textContent: renderable.group.name,
-      },
-    }) as HTMLSpanElement;
+    const title = isEditingGroupName
+      ? this.renderInlineGroupNameEditor()
+      : (ztoolkit.UI.createElement(this.document, "span", {
+          namespace: "html",
+          classList: ["tab-enhance-vertical-group-title"],
+          properties: {
+            textContent: renderable.group.name,
+          },
+        }) as HTMLSpanElement);
 
     const count = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
@@ -1426,6 +1384,106 @@ export default class VerticalTabSidebar {
         "aria-hidden": "true",
       },
     }) as HTMLDivElement;
+  }
+
+  private renderCreateGroupEditor(): HTMLElement {
+    const palette = getGroupColorPalette();
+    const groupColor =
+      palette[this.groupStore.getGroups().length % palette.length] ?? "#F6B433";
+    const container = ztoolkit.UI.createElement(this.document, "div", {
+      namespace: "html",
+      classList: [
+        "tab-enhance-inline-group-create",
+        "tab-enhance-vertical-group-header",
+      ],
+      properties: {
+        title: getString("group-name-prompt"),
+      },
+      attributes: {
+        role: "group",
+      },
+    }) as HTMLDivElement;
+
+    container.style.setProperty("--group-color", groupColor);
+    container.appendChild(
+      ztoolkit.UI.createElement(this.document, "span", {
+        namespace: "html",
+        classList: ["tab-enhance-vertical-group-color"],
+      }) as HTMLSpanElement,
+    );
+    container.appendChild(this.renderInlineGroupNameEditor());
+    return container;
+  }
+
+  private renderInlineGroupNameEditor(): HTMLElement {
+    const editor = this.groupNameEditor;
+    const wrapper = ztoolkit.UI.createElement(this.document, "span", {
+      namespace: "html",
+      classList: ["tab-enhance-inline-group-name-editor"],
+      listeners: [
+        {
+          type: "click",
+          listener: (event: Event) => event.stopPropagation(),
+        },
+        {
+          type: "mousedown",
+          listener: (event: Event) => event.stopPropagation(),
+        },
+        {
+          type: "contextmenu",
+          listener: (event: Event) => event.stopPropagation(),
+        },
+      ],
+    }) as HTMLSpanElement;
+
+    const input = ztoolkit.UI.createElement(this.document, "input", {
+      namespace: "html",
+      classList: ["tab-enhance-inline-group-name-input"],
+      attributes: {
+        type: "text",
+        placeholder: getString("group-name-prompt"),
+      },
+      properties: {
+        value: editor?.value ?? "",
+      },
+      listeners: [
+        {
+          type: "input",
+          listener: (event: Event) => {
+            if (this.groupNameEditor) {
+              this.groupNameEditor.value = (
+                event.target as HTMLInputElement
+              ).value;
+            }
+          },
+        },
+        {
+          type: "keydown",
+          listener: (event: Event) => {
+            const keyboardEvent = event as KeyboardEvent;
+            keyboardEvent.stopPropagation();
+            if (keyboardEvent.key === "Enter") {
+              keyboardEvent.preventDefault();
+              this.commitInlineGroupNameEditor();
+              return;
+            }
+            if (keyboardEvent.key === "Escape") {
+              keyboardEvent.preventDefault();
+              this.cancelInlineGroupNameEditor();
+            }
+          },
+        },
+        {
+          type: "blur",
+          listener: () => {
+            this.commitInlineGroupNameEditor();
+          },
+        },
+      ],
+    }) as HTMLInputElement;
+
+    wrapper.appendChild(input);
+    return wrapper;
   }
 
   private isNoOpDropTarget(
@@ -2105,49 +2163,75 @@ export default class VerticalTabSidebar {
       return;
     }
 
-    const name = this.promptForGroupName(selectedTab.title);
-    if (name === null) {
+    this.beginCreateGroupEditor(this.normalizeTab(selectedTab));
+  }
+
+  private beginCreateGroupEditor(sourceTab: TrackedTab): void {
+    this.groupNameEditor = {
+      kind: "create",
+      sourceTab,
+      value: sourceTab.title,
+    };
+    this.prepareInlineGroupNameEditor();
+  }
+
+  private beginRenameGroupEditor(group: VirtualGroup): void {
+    this.groupNameEditor = {
+      kind: "rename",
+      groupId: group.id,
+      value: group.name,
+    };
+    this.prepareInlineGroupNameEditor();
+  }
+
+  private prepareInlineGroupNameEditor(): void {
+    this.hideContextMenu();
+    this.clearDragState();
+    if (this.collapsed) {
+      this.collapsed = false;
+      this.applySidebarWidth();
+      this.persistSidebarState();
+    }
+    if (this.viewMode !== "default") {
+      this.viewMode = "default";
+      this.persistSidebarState();
+    }
+    this.render(this.tracker.getSnapshot());
+    this.focusInlineGroupNameEditor();
+  }
+
+  private focusInlineGroupNameEditor(): void {
+    this.window.setTimeout(() => {
+      const input = this.listContainer?.querySelector(
+        ".tab-enhance-inline-group-name-input",
+      ) as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    }, 0);
+  }
+
+  private commitInlineGroupNameEditor(): void {
+    const editor = this.groupNameEditor;
+    if (!editor) {
       return;
     }
 
-    this.groupStore.createGroupFromTab(this.normalizeTab(selectedTab), name);
+    const name = editor.value.trim() || getString("new-group");
+    this.groupNameEditor = null;
+    if (editor.kind === "create") {
+      this.groupStore.createGroupFromTab(editor.sourceTab, name);
+    } else {
+      this.groupStore.renameGroup(editor.groupId, name);
+    }
+    this.render(this.tracker.getSnapshot());
   }
 
-  private openGroupNamePanel(
-    defaultValue: string,
-    onSubmit: (name: string) => void,
-    screenX = this.lastContextMenuPoint.x,
-    screenY = this.lastContextMenuPoint.y,
-  ): void {
-    if (!this.groupNamePanel || !this.groupNameInput) {
-      const fallbackValue = this.promptForGroupName(defaultValue);
-      if (fallbackValue !== null) {
-        onSubmit(fallbackValue);
-      }
+  private cancelInlineGroupNameEditor(): void {
+    if (!this.groupNameEditor) {
       return;
     }
-
-    this.groupNamePanelConfirmed = false;
-    this.pendingGroupNameSubmit = onSubmit;
-    this.groupNameInput.value = defaultValue;
-    this.groupNamePanel.openPopupAtScreen(screenX + 8, screenY + 8, true);
-  }
-
-  private confirmGroupNamePanel(): void {
-    const submit = this.pendingGroupNameSubmit;
-    const value = this.groupNameInput?.value.trim() || getString("new-group");
-    this.pendingGroupNameSubmit = null;
-    this.groupNamePanelConfirmed = true;
-    this.groupNamePanel?.hidePopup();
-    if (submit) {
-      submit(value);
-    }
-  }
-
-  private cancelGroupNamePanel(): void {
-    this.pendingGroupNameSubmit = null;
-    this.groupNamePanelConfirmed = false;
-    this.groupNamePanel?.hidePopup();
+    this.groupNameEditor = null;
+    this.render(this.tracker.getSnapshot());
   }
   private async activateGroupMember(
     groupId: string,
@@ -2340,7 +2424,6 @@ export default class VerticalTabSidebar {
     if (!this.contextMenu) {
       return;
     }
-    this.lastContextMenuPoint = { x: screenX, y: screenY };
     this.hideContextMenu();
 
     switch (target.kind) {
@@ -2376,9 +2459,7 @@ export default class VerticalTabSidebar {
 
     this.appendSeparator();
     this.appendMenuItem(getString("create-group"), () => {
-      this.openGroupNamePanel(tracked.title, (name) => {
-        this.groupStore.createGroupFromTab(tracked, name);
-      });
+      this.beginCreateGroupEditor(tracked);
     });
 
     const groups = this.groupStore.getGroups();
@@ -2429,7 +2510,11 @@ export default class VerticalTabSidebar {
         getString("move-to-group"),
         otherGroups,
         (targetGroup) => () =>
-          this.groupStore.moveMemberToGroup(group.id, targetGroup.id, member.key),
+          this.groupStore.moveMemberToGroup(
+            group.id,
+            targetGroup.id,
+            member.key,
+          ),
       );
       this.appendGroupSubmenu(
         getString("add-to-group"),
@@ -2466,9 +2551,7 @@ export default class VerticalTabSidebar {
       () => this.groupStore.toggleCollapsed(group.id),
     );
     this.appendMenuItem(getString("rename-group"), () => {
-      this.openGroupNamePanel(group.name, (nextName) => {
-        this.groupStore.renameGroup(group.id, nextName);
-      });
+      this.beginRenameGroupEditor(group);
     });
     this.appendColorSubmenu(group.id, group.color);
     this.appendSeparator();
@@ -3040,19 +3123,6 @@ export default class VerticalTabSidebar {
       '.tab-enhance-vertical-group-header[data-sortable="true"][data-sort-kind="groups"]',
     );
     return header ? (header as HTMLDivElement) : null;
-  }
-
-  private promptForGroupName(defaultValue: string): string | null {
-    const value = this.window.prompt(
-      getString("group-name-prompt"),
-      defaultValue,
-    );
-    if (value === null) {
-      return null;
-    }
-
-    const normalized = value.trim();
-    return normalized || getString("new-group");
   }
 
   private getBadgeText(iconKey: string): string {
