@@ -16,6 +16,12 @@ interface MenuItemConfig {
   disabled?: boolean;
 }
 
+interface GroupMenuItemConfig {
+  id: string;
+  name: string;
+  color: string;
+}
+
 const MENU_ITEM_IDS = {
   SHOW_IN_FILESYSTEM: "show-in-filesystem",
   RELOAD: "reload",
@@ -133,8 +139,11 @@ export default class TabEnhance {
     const menupopup = element as Element;
 
     this.updateAvailableMenuItems(tabInfo);
+    const groups = this.getAvailableGroups();
+    const sidebar = addon.verticalTabSidebarInstances.get(this.window);
 
-    if (this.availableMenuItems.length === 0) return;
+    if (!sidebar && this.availableMenuItems.length === 0 && groups.length === 0)
+      return;
 
     menupopup.appendChild(
       this.ztoolkit.createXULElement(this.document, "menuseparator"),
@@ -143,6 +152,30 @@ export default class TabEnhance {
     this.availableMenuItems.forEach((config) => {
       this.addMenuItemToPopup(menupopup, config);
     });
+
+    if (sidebar) {
+      this.addMenuItemToPopup(menupopup, {
+        id: "create-group",
+        label: getString("create-group"),
+        handler: () => {
+          const groupName = this.window.prompt(
+            getString("group-name-prompt"),
+            tabInfo.tabTitle ?? getString("new-group"),
+          );
+          if (groupName === null) {
+            return;
+          }
+          sidebar.createGroupFromOpenTab(
+            tabInfo.tabId,
+            groupName.trim() || getString("new-group"),
+          );
+        },
+      });
+    }
+
+    if (groups.length > 0) {
+      this.addGroupSubmenuToPopup(menupopup, tabInfo, groups);
+    }
   }
 
   private addMenuItemToPopup(element: Element, config: MenuItemConfig) {
@@ -154,6 +187,46 @@ export default class TabEnhance {
     }
     menuItem.addEventListener("command", () => void config.handler());
     element.appendChild(menuItem);
+  }
+
+  private addGroupSubmenuToPopup(
+    element: Element,
+    tabInfo: TabInfo,
+    groups: GroupMenuItemConfig[],
+  ) {
+    const menu = this.ztoolkit.createXULElement(this.document, "menu");
+    menu.setAttribute("label", getString("add-to-group"));
+
+    const popup = this.ztoolkit.createXULElement(this.document, "menupopup");
+    groups.forEach((group) => {
+      const menuItem = this.ztoolkit.createXULElement(
+        this.document,
+        "menuitem",
+      );
+      menuItem.setAttribute("label", group.name);
+      menuItem.setAttribute("style", `color:${group.color};`);
+      menuItem.addEventListener("command", () => {
+        const sidebar = addon.verticalTabSidebarInstances.get(this.window);
+        sidebar?.addOpenTabToGroup(tabInfo.tabId, group.id);
+      });
+      popup.appendChild(menuItem);
+    });
+
+    menu.appendChild(popup);
+    element.appendChild(menu);
+  }
+
+  private getAvailableGroups(): GroupMenuItemConfig[] {
+    const sidebar = addon.verticalTabSidebarInstances.get(this.window);
+    if (!sidebar) {
+      return [];
+    }
+
+    return sidebar.getGroupsForContextMenu().map((group) => ({
+      id: group.id,
+      name: group.name,
+      color: group.color,
+    }));
   }
 
   private removeAllEventListeners() {

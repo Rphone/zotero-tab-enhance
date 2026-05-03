@@ -286,6 +286,41 @@ export default class VerticalTabSidebar {
     this.render(this.tracker.getSnapshot());
   }
 
+  public getGroupsForContextMenu(): VirtualGroup[] {
+    return this.groupStore.getGroups();
+  }
+
+  public addOpenTabToGroup(tabId: string | null, groupId: string): boolean {
+    if (!tabId || !groupId) {
+      return false;
+    }
+
+    const trackedTab = this.tracker
+      .getTabs()
+      .map((tab) => this.normalizeTab(tab))
+      .find((tab) => tab.tabId === tabId && this.shouldRenderTab(tab));
+    if (!trackedTab) {
+      this.tracker.requestReconcile(`horizontal-add-to-group:${tabId}`, 0);
+      return false;
+    }
+
+    this.groupStore.addTabToGroup(groupId, trackedTab);
+    return true;
+  }
+
+  public createGroupFromOpenTab(tabId: string | null, name?: string): boolean {
+    const trackedTab = this.findTrackedTabByTabId(tabId);
+    if (!trackedTab) {
+      if (tabId) {
+        this.tracker.requestReconcile(`horizontal-create-group:${tabId}`, 0);
+      }
+      return false;
+    }
+
+    this.groupStore.createGroupFromTab(trackedTab, name);
+    return true;
+  }
+
   public destroy(): void {
     if (!this.initialized) {
       return;
@@ -2375,6 +2410,34 @@ export default class VerticalTabSidebar {
           this.contextMenu?.appendChild(this.renderContextMenuItem(item)),
         );
       this.appendSeparator();
+    } else {
+      this.commandController
+        .getVirtualMemberContextMenuItems(member)
+        .forEach((item) =>
+          this.contextMenu?.appendChild(this.renderContextMenuItem(item)),
+        );
+      if (this.contextMenu.firstChild) {
+        this.appendSeparator();
+      }
+    }
+
+    const otherGroups = this.groupStore
+      .getGroups()
+      .filter((item) => item.id !== group.id);
+    if (otherGroups.length > 0) {
+      this.appendGroupSubmenu(
+        getString("move-to-group"),
+        otherGroups,
+        (targetGroup) => () =>
+          this.groupStore.moveMemberToGroup(group.id, targetGroup.id, member.key),
+      );
+      this.appendGroupSubmenu(
+        getString("add-to-group"),
+        otherGroups,
+        (targetGroup) => () =>
+          this.groupStore.addMemberToGroup(targetGroup.id, member),
+      );
+      this.appendSeparator();
     }
 
     this.appendMenuItem(getString("remove-from-group"), () => {
@@ -3175,5 +3238,18 @@ export default class VerticalTabSidebar {
 
     this.tracker.reconcile(`member-lookup:${memberKey}`);
     return this.trackedTabsByMemberKey.get(memberKey) ?? null;
+  }
+
+  private findTrackedTabByTabId(tabId: string | null): TrackedTab | null {
+    if (!tabId) {
+      return null;
+    }
+
+    return (
+      this.tracker
+        .getTabs()
+        .map((tab) => this.normalizeTab(tab))
+        .find((tab) => tab.tabId === tabId && this.shouldRenderTab(tab)) ?? null
+    );
   }
 }

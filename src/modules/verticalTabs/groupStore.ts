@@ -111,7 +111,13 @@ export default class TabGroupStore {
 
   public addTabToGroup(groupId: string, tab: TrackedTab): void {
     const member = this.makeMemberFromTab(tab);
+    this.addMemberToGroup(groupId, member);
+  }
 
+  public addMemberToGroup(
+    groupId: string,
+    member: VirtualGroupMember,
+  ): void {
     let changed = false;
     this.groups = this.groups.map((group) => {
       if (group.id !== groupId) {
@@ -137,9 +143,74 @@ export default class TabGroupStore {
 
       return {
         ...group,
-        members: [...group.members, member],
+        members: [...group.members, { ...member, id: this.makeID("member") }],
       };
     });
+
+    if (changed) {
+      this.emit();
+    }
+  }
+
+  public moveMemberToGroup(
+    sourceGroupId: string,
+    targetGroupId: string,
+    memberKey: string,
+  ): void {
+    if (
+      !sourceGroupId ||
+      !targetGroupId ||
+      !memberKey ||
+      sourceGroupId === targetGroupId
+    ) {
+      return;
+    }
+
+    const sourceGroup = this.groups.find((group) => group.id === sourceGroupId);
+    const member =
+      sourceGroup?.members.find((item) => item.key === memberKey) ?? null;
+    if (!member) {
+      return;
+    }
+
+    let changed = false;
+    this.groups = this.groups
+      .map((group) => {
+        if (group.id === sourceGroupId) {
+          const members = group.members.filter((item) => item.key !== memberKey);
+          if (members.length !== group.members.length) {
+            changed = true;
+          }
+          return {
+            ...group,
+            members,
+          };
+        }
+
+        if (group.id === targetGroupId) {
+          const existingIndex = group.members.findIndex(
+            (item) => item.key === member.key,
+          );
+          const members = [...group.members];
+          if (existingIndex >= 0) {
+            members[existingIndex] = {
+              ...members[existingIndex],
+              ...member,
+              id: members[existingIndex].id,
+            };
+          } else {
+            members.push({ ...member, id: this.makeID("member") });
+          }
+          changed = true;
+          return {
+            ...group,
+            members,
+          };
+        }
+
+        return group;
+      })
+      .filter((group) => group.members.length > 0);
 
     if (changed) {
       this.emit();

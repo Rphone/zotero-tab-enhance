@@ -1,11 +1,12 @@
 import { getString } from "../../utils/locale";
 import { getPref } from "../../utils/prefs";
-import { TrackedTab } from "./types";
+import { TrackedTab, VirtualGroupMember } from "./types";
 
 export type TabCommandID =
   | "close"
   | "show-in-filesystem"
   | "reload"
+  | "load"
   | "copy-to-clipboard";
 
 export interface TabCommandItem {
@@ -14,6 +15,8 @@ export interface TabCommandItem {
   disabled?: boolean;
   handler: () => Promise<void> | void;
 }
+
+type ItemContext = Pick<TrackedTab | VirtualGroupMember, "itemID" | "parentItemID">;
 
 type NativeTabEntry = {
   tab: _ZoteroTypes.TabInstance;
@@ -174,42 +177,41 @@ export default class TabCommandController {
       if (typeof itemID !== "number") {
         return;
       }
-      const item = Zotero.Items.get(itemID).topLevelItem;
-      let items = [item];
-
-      let format = Zotero.QuickCopy.getFormatFromURL(
-        Zotero.QuickCopy.lastActiveURL,
-      );
-      if (items.every((currentItem) => currentItem.isNote() || currentItem.isAttachment())) {
-        format = Zotero.QuickCopy.getNoteFormat();
-      }
-      format = Zotero.QuickCopy.unserializeSetting(format);
-
-      if (format.mode === "bibliography") {
-        items = items.filter((currentItem) => currentItem.isRegularItem());
-      }
-
-      if (!items.length) {
+      const item = Zotero.Items.get(itemID);
+      if (!item) {
         return;
       }
-
-      const locale = format.locale
-        ? format.locale
-        : Zotero.Prefs.get("export.quickCopy.locale");
-
-      if (format.mode === "bibliography") {
-        (this.window.Zotero_File_Interface as any).copyItemsToClipboard(
-          items,
-          format.id,
-          locale,
-          format.contentType === "html",
-          false,
-        );
-      } else if (format.mode === "export") {
-        this.window.Zotero_File_Interface.exportItemsToClipboard(items, format);
-      }
+      this.copyReferenceForItem(item);
     } catch (error) {
       ztoolkit.log("TabCommandController.copyReference failed", tabId, error);
+    }
+  }
+
+  public async showMemberInFilesystem(
+    member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
+  ): Promise<void> {
+    try {
+      const attachment = await this.resolveAttachmentItem(member);
+      if (!attachment) {
+        return;
+      }
+      await this.window.ZoteroPane.showAttachmentInFilesystem(attachment.id);
+    } catch (error) {
+      ztoolkit.log("TabCommandController.showMemberInFilesystem failed", member, error);
+    }
+  }
+
+  public copyMemberReference(
+    member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
+  ): void {
+    try {
+      const item = this.resolvePrimaryItem(member);
+      if (!item) {
+        return;
+      }
+      this.copyReferenceForItem(item);
+    } catch (error) {
+      ztoolkit.log("TabCommandController.copyMemberReference failed", member, error);
     }
   }
 
@@ -254,6 +256,43 @@ export default class TabCommandController {
     return items;
   }
 
+  public getVirtualMemberContextMenuItems(
+    member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
+  ): TabCommandItem[] {
+    const primaryItemCandidate = this.resolvePrimaryItem(member);
+    const referenceCandidate = primaryItemCandidate;
+    const items: TabCommandItem[] = [];
+
+    if (getPref("enableCopyReference")) {
+      items.push({
+        id: "copy-to-clipboard",
+        label: getString("copy-to-clipboard"),
+        disabled: !referenceCandidate,
+        handler: () => this.copyMemberReference(member),
+      });
+    }
+
+    if (getPref("enableGoToAttachment")) {
+      items.push({
+        id: "show-in-filesystem",
+        label: getString("show-in-filesystem"),
+        disabled: !primaryItemCandidate,
+        handler: () => this.showMemberInFilesystem(member),
+      });
+    }
+
+    if (getPref("enableReloadTab")) {
+      items.push({
+        id: "load",
+        label: getString("load-tab"),
+        disabled: !primaryItemCandidate,
+        handler: () => this.loadMemberTab(member),
+      });
+    }
+
+    return items;
+  }
+
   private getNativeTab(tabId: string | null, logError = true) {
     return this.getNativeTabEntry(tabId, logError)?.tab ?? null;
   }
@@ -290,5 +329,92 @@ export default class TabCommandController {
     return new Promise((resolve) => {
       this.window.setTimeout(resolve, ms);
     });
+  }
+
+  private resolvePrimaryItem(context: ItemContext): any | null {
+    const candidateIDs = [context.parentItemID, context.itemID].filter(
+      (itemID, index, array): itemID is number =>
+        typeof itemID === "number" && array.indexOf(itemID) === index,
+    );
+
+    for (const itemID of candidateIDs) {
+      const item = Zotero.Items.get(itemID);
+      if (item) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveAttachmentItem(context: ItemContext): Promise<any | null> {
+    const item = this.resolvePrimaryItem(context);
+    if (!item) {
+      return null;
+    }
+
+    if (item.isFileAttachment?.()) {
+      return item;
+    }
+
+    return (await item.getBestAttachment?.()) ?? null;
+  }
+
+  private copyReferenceForItem(item: any): void {
+    const topLevelItem = item.topLevelItem ?? item;
+    let items = [topLevelItem];
+
+    let format = Zotero.QuickCopy.getFormatFromURL(
+      Zotero.QuickCopy.lastActiveURL,
+    );
+    if (
+      items.every(
+        (currentItem) =>
+          currentItem.isNote?.() || currentItem.isAttachment?.(),
+      )
+    ) {
+      format = Zotero.QuickCopy.getNoteFormat();
+    }
+    format = Zotero.QuickCopy.unserializeSetting(format);
+
+    if (format.mode === "bibliography") {
+      items = items.filter((currentItem) => currentItem.isRegularItem?.());
+    }
+
+    if (!items.length) {
+      return;
+    }
+
+    const locale = format.locale
+      ? format.locale
+      : Zotero.Prefs.get("export.quickCopy.locale");
+
+    if (format.mode === "bibliography") {
+      (this.window.Zotero_File_Interface as any).copyItemsToClipboard(
+        items,
+        format.id,
+        locale,
+        format.contentType === "html",
+        false,
+      );
+    } else if (format.mode === "export") {
+      this.window.Zotero_File_Interface.exportItemsToClipboard(items, format);
+    }
+  }
+
+  private async loadMemberTab(
+    member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
+  ): Promise<void> {
+    try {
+      const attachment = await this.resolveAttachmentItem(member);
+      if (!attachment) {
+        return;
+      }
+      await Zotero.Reader.open(attachment.id, undefined, {
+        openInBackground: true,
+      });
+    } catch (error) {
+      ztoolkit.log("TabCommandController.loadMemberTab failed", member, error);
+    }
   }
 }
