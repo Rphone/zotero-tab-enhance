@@ -1,6 +1,9 @@
 import { defineConfig } from "zotero-plugin-scaffold";
 import pkg from "./package.json";
 
+const buildEnv =
+  process.env.NODE_ENV === "development" ? "development" : "production";
+
 export default defineConfig({
   source: ["src", "addon"],
   dist: ".scaffold/build",
@@ -30,7 +33,7 @@ export default defineConfig({
       {
         entryPoints: ["src/index.ts"],
         define: {
-          __env__: `"${process.env.NODE_ENV}"`,
+          __env__: JSON.stringify(buildEnv),
         },
         bundle: true,
         target: "firefox115",

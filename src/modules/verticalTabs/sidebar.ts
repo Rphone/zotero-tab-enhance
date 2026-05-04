@@ -30,6 +30,9 @@ const SIDEBAR = {
   ROW_HEIGHT: 72,
   ANIMATION_DURATION_MS: 250,
   SEARCH_DEBOUNCE_MS: 200,
+  RENDER_DEBOUNCE_MS: 32,
+  READER_METADATA_DEFER_MS: 1200,
+  READER_REOPEN_SETTLE_MS: 120,
   DROP_HYSTERESIS: 8,
 } as const;
 
@@ -99,8 +102,14 @@ export default class VerticalTabSidebar {
   private pendingGroupToggleTimers = new Map<string, number>();
   private pendingMemberOpenPromises = new Map<string, Promise<boolean>>();
   private groupNameEditor: InlineGroupNameEditor | null = null;
-  private readonly displayItemCache = new Map<string, any | null>();
+  private readonly displayItemIDCache = new Map<string, number | null>();
   private readonly itemFieldCache = new Map<string, string>();
+  private pendingRenderSnapshot: TabTrackerSnapshot | null = null;
+  private pendingRenderTimer: number | null = null;
+  private displayTitleMode = "title";
+  private displaySubtitleMode = "source";
+  private metadataDeferredUntil = 0;
+  private metadataResumeTimer: number | null = null;
   private isResizing: boolean = false;
 
   private readonly handleResizeEnd = () => {
@@ -257,11 +266,12 @@ export default class VerticalTabSidebar {
     }
 
     this.restorePersistedState();
+    this.refreshDisplayModeCache();
     this.initialized = true;
     this.unsubscribeGroupStore = this.groupStore.subscribe(() => {
       if (this.initialized) {
         this.persistGroupsState();
-        this.render(this.tracker.getSnapshot());
+        this.requestRender(this.tracker.getSnapshot());
       }
     });
     this.unsubscribeTracker = this.tracker.subscribe((snapshot) => {
@@ -269,7 +279,7 @@ export default class VerticalTabSidebar {
         snapshot.tabs.map((tab) => this.normalizeTab(tab)),
       );
       if (!groupSyncChanged) {
-        this.render(snapshot);
+        this.requestRender(snapshot);
       }
     });
     this.window.addEventListener("mouseup", this.handleResizeEnd);
@@ -282,8 +292,23 @@ export default class VerticalTabSidebar {
     if (!this.initialized) {
       return;
     }
+    this.refreshDisplayModeCache();
     this.clearDisplayMetadataCache();
     this.render(this.tracker.getSnapshot());
+  }
+
+  public deferReaderMetadata(
+    duration = SIDEBAR.READER_METADATA_DEFER_MS,
+  ): void {
+    if (!this.initialized) {
+      return;
+    }
+
+    this.metadataDeferredUntil = Math.max(
+      this.metadataDeferredUntil,
+      Date.now() + duration,
+    );
+    this.scheduleMetadataResumeRender();
   }
 
   public getGroupsForContextMenu(): VirtualGroup[] {
@@ -335,6 +360,8 @@ export default class VerticalTabSidebar {
     this.unsubscribeTracker = undefined;
     this.unsubscribeGroupStore?.();
     this.unsubscribeGroupStore = undefined;
+    this.cancelPendingRender();
+    this.cancelMetadataResumeRender();
     this.pendingGroupToggleTimers.forEach((timerId) => {
       this.window.clearTimeout(timerId);
     });
@@ -826,7 +853,56 @@ export default class VerticalTabSidebar {
     return value === "default" || value === "recent" || value === "type";
   }
 
+  private requestRender(snapshot: TabTrackerSnapshot): void {
+    this.pendingRenderSnapshot = snapshot;
+    if (this.pendingRenderTimer != null) {
+      return;
+    }
+
+    this.pendingRenderTimer = this.window.setTimeout(() => {
+      this.pendingRenderTimer = null;
+      const pendingSnapshot = this.pendingRenderSnapshot;
+      this.pendingRenderSnapshot = null;
+      if (!this.initialized || !pendingSnapshot) {
+        return;
+      }
+      this.render(pendingSnapshot);
+    }, SIDEBAR.RENDER_DEBOUNCE_MS);
+  }
+
+  private cancelPendingRender(): void {
+    if (this.pendingRenderTimer != null) {
+      this.window.clearTimeout(this.pendingRenderTimer);
+      this.pendingRenderTimer = null;
+    }
+    this.pendingRenderSnapshot = null;
+  }
+
+  private isMetadataDeferred(): boolean {
+    return Date.now() < this.metadataDeferredUntil;
+  }
+
+  private scheduleMetadataResumeRender(): void {
+    this.cancelMetadataResumeRender();
+    const delay = Math.max(0, this.metadataDeferredUntil - Date.now());
+    this.metadataResumeTimer = this.window.setTimeout(() => {
+      this.metadataResumeTimer = null;
+      if (!this.initialized || this.isMetadataDeferred()) {
+        return;
+      }
+      this.render(this.tracker.getSnapshot());
+    }, delay);
+  }
+
+  private cancelMetadataResumeRender(): void {
+    if (this.metadataResumeTimer != null) {
+      this.window.clearTimeout(this.metadataResumeTimer);
+      this.metadataResumeTimer = null;
+    }
+  }
+
   private render(snapshot: TabTrackerSnapshot): void {
+    this.cancelPendingRender();
     if (!this.listContainer || !this.countBadge || !this.headerTitle) {
       return;
     }
@@ -834,12 +910,6 @@ export default class VerticalTabSidebar {
     const openTabs = snapshot.tabs
       .map((tab) => this.normalizeTab(tab))
       .filter((tab) => this.shouldRenderTab(tab));
-    const renderableGroups = this.getRenderableGroups(openTabs);
-    const visibleUngroupedTabs = this.groupStore
-      .getUngroupedTabs(openTabs)
-      .filter((tab) => this.matchesSearch(tab));
-    const aggregateSections = this.getAggregateSections(openTabs);
-    const listContainer = this.listContainer;
 
     this.trackedTabsByKey.clear();
     this.trackedTabsByMemberKey.clear();
@@ -851,6 +921,19 @@ export default class VerticalTabSidebar {
         }
       });
     });
+
+    const renderableGroups =
+      this.viewMode === "default" ? this.getRenderableGroups(openTabs) : [];
+    const visibleUngroupedTabs =
+      this.viewMode === "default"
+        ? this.groupStore
+            .getUngroupedTabs(openTabs)
+            .filter((tab) => this.matchesSearch(tab))
+        : [];
+    const aggregateSections =
+      this.viewMode === "default" ? [] : this.getAggregateSections(openTabs);
+    const listContainer = this.listContainer;
+
     this.hideContextMenu();
     this.updateViewSwitcher();
     this.headerTitle.textContent = this.getViewTitle();
@@ -1687,12 +1770,14 @@ export default class VerticalTabSidebar {
     }
 
     row.appendChild(this.renderBadge(tab.iconKey));
-    row.appendChild(
-      this.renderRowContent(
-        this.getDisplayTitle(tab),
-        this.getDisplaySubtitle(tab),
-      ),
-    );
+    if (!this.collapsed) {
+      row.appendChild(
+        this.renderRowContent(
+          this.getDisplayTitle(tab),
+          this.getDisplaySubtitle(tab),
+        ),
+      );
+    }
 
     if (!this.collapsed && tab.tabId) {
       row.appendChild(
@@ -1751,12 +1836,14 @@ export default class VerticalTabSidebar {
     row.addEventListener("dragend", this.handleRowDragEnd);
 
     row.appendChild(this.renderBadge(member.iconKey));
-    row.appendChild(
-      this.renderRowContent(
-        this.getDisplayTitle(member),
-        this.getDisplaySubtitle(member),
-      ),
-    );
+    if (!this.collapsed) {
+      row.appendChild(
+        this.renderRowContent(
+          this.getDisplayTitle(member),
+          this.getDisplaySubtitle(member),
+        ),
+      );
+    }
 
     return row;
   }
@@ -1829,6 +1916,18 @@ export default class VerticalTabSidebar {
     }
     event.preventDefault();
     event.stopPropagation();
+
+    const groupId = row.dataset.groupId ?? null;
+    const memberKey = row.dataset.memberKey ?? null;
+    const tabKey = row.dataset.tabKey ?? null;
+    if (groupId && memberKey) {
+      const trackedTab = tabKey ? this.trackedTabsByKey.get(tabKey) : null;
+      if (!this.commandController.hasOpenTab(trackedTab?.tabId ?? null)) {
+        void this.activateGroupMember(groupId, memberKey);
+        return;
+      }
+    }
+
     this.selectTrackedTabByKey(row.dataset.tabKey ?? null);
   };
 
@@ -2147,11 +2246,8 @@ export default class VerticalTabSidebar {
       return;
     }
 
-    try {
-      this.commandController.select(tabId);
+    if (this.commandController.select(tabId)) {
       return;
-    } catch (error) {
-      ztoolkit.log("VerticalTabSidebar select failed", tabId, error);
     }
 
     this.tracker.reconcile("failed-select");
@@ -2303,24 +2399,23 @@ export default class VerticalTabSidebar {
     }
 
     try {
-      let item = Zotero.Items.get(preferredItemID);
-      if (!item) {
-        return false;
-      }
-
-      if (!item.isFileAttachment?.()) {
-        const bestAttachment = await item.getBestAttachment?.();
-        if (bestAttachment) {
-          item = bestAttachment;
-        }
-      }
-
       const alreadyOpenTab = this.findTrackedTabByMemberKey(memberKey, true);
       if (alreadyOpenTab?.tabId) {
         return true;
       }
 
-      await (Zotero as any).FileHandlers.open(item);
+      await this.wait(SIDEBAR.READER_REOPEN_SETTLE_MS);
+      const openItem = await this.resolveForegroundOpenItem(preferredItemID);
+      if (!openItem) {
+        return false;
+      }
+      if (openItem.isFileAttachment?.()) {
+        await Zotero.Reader.open(openItem.id, undefined, {
+          openInBackground: true,
+        });
+      } else {
+        await (Zotero as any).FileHandlers.open(openItem);
+      }
       this.tracker.requestReconcile(`group-member-open:${member.key}`, 0);
       this.tracker.scheduleDelayedReconcile(
         `group-member-open:${member.key}`,
@@ -2414,6 +2509,19 @@ export default class VerticalTabSidebar {
     return new Promise((resolve) => {
       this.window.setTimeout(resolve, ms);
     });
+  }
+
+  private async resolveForegroundOpenItem(itemID: number): Promise<any | null> {
+    const item = Zotero.Items.get(itemID);
+    if (!item) {
+      return null;
+    }
+
+    if (item.isFileAttachment?.()) {
+      return item;
+    }
+
+    return (await item.getBestAttachment?.()) ?? item;
   }
 
   private showContextMenu(
@@ -3144,8 +3252,11 @@ export default class VerticalTabSidebar {
       "title" | "itemID" | "parentItemID"
     >,
   ): string {
-    const mode = getPref("verticalTabTitleMode");
-    if (mode === "shortTitle") {
+    if (this.isMetadataDeferred()) {
+      return input.title?.trim() || "Untitled";
+    }
+
+    if (this.displayTitleMode === "shortTitle") {
       const item = this.getDisplayItem(input);
       const shortTitle = this.getItemField(item, ["shortTitle"]);
       if (shortTitle) {
@@ -3161,25 +3272,32 @@ export default class VerticalTabSidebar {
       "type" | "itemID" | "parentItemID" | "isOpen"
     >,
   ): string {
-    const mode = getPref("verticalTabSubtitleMode");
-    switch (mode) {
+    if (this.isMetadataDeferred()) {
+      return this.getLegacyMetaText(input);
+    }
+
+    switch (this.displaySubtitleMode) {
       case "none":
         return "";
       case "typeAndItem":
         return this.getLegacyMetaText(input);
-      case "creatorYear":
+      case "creatorYear": {
+        const item = this.getDisplayItem(input);
         return (
-          this.getCreatorYearText(this.getDisplayItem(input)) ||
-          this.getSourceText(this.getDisplayItem(input)) ||
+          this.getCreatorYearText(item) ||
+          this.getSourceText(item) ||
           this.getLegacyMetaText(input)
         );
+      }
       case "source":
-      default:
+      default: {
+        const item = this.getDisplayItem(input);
         return (
-          this.getSourceText(this.getDisplayItem(input)) ||
-          this.getCreatorYearText(this.getDisplayItem(input)) ||
+          this.getSourceText(item) ||
+          this.getCreatorYearText(item) ||
           this.getLegacyMetaText(input)
         );
+      }
     }
   }
 
@@ -3223,17 +3341,20 @@ export default class VerticalTabSidebar {
         typeof value === "number" && array.indexOf(value) === index,
     );
     const cacheKey = ids.length ? ids.join("|") : "none";
-    if (this.displayItemCache.has(cacheKey)) {
-      return this.displayItemCache.get(cacheKey) ?? null;
+    if (this.displayItemIDCache.has(cacheKey)) {
+      const cachedItemID = this.displayItemIDCache.get(cacheKey);
+      return typeof cachedItemID === "number"
+        ? Zotero.Items.get(cachedItemID) ?? null
+        : null;
     }
     for (const id of ids) {
       const item = Zotero.Items.get(id);
       if (item) {
-        this.displayItemCache.set(cacheKey, item);
+        this.displayItemIDCache.set(cacheKey, id);
         return item;
       }
     }
-    this.displayItemCache.set(cacheKey, null);
+    this.displayItemIDCache.set(cacheKey, null);
     return null;
   }
 
@@ -3293,8 +3414,13 @@ export default class VerticalTabSidebar {
   }
 
   private clearDisplayMetadataCache(): void {
-    this.displayItemCache.clear();
+    this.displayItemIDCache.clear();
     this.itemFieldCache.clear();
+  }
+
+  private refreshDisplayModeCache(): void {
+    this.displayTitleMode = getPref("verticalTabTitleMode");
+    this.displaySubtitleMode = getPref("verticalTabSubtitleMode");
   }
 
   private findTrackedTabByMemberKey(

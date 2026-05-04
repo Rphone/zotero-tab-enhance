@@ -23,7 +23,9 @@ type NativeTabEntry = {
   tabIndex: number;
 };
 
-function isReaderTab(tab: _ZoteroTypes.TabInstance | TrackedTab | null | undefined) {
+function isReaderTab(
+  tab: _ZoteroTypes.TabInstance | TrackedTab | null | undefined,
+) {
   return Boolean(tab && (tab.type === "reader" || tab.type === "reader-unloaded"));
 }
 
@@ -31,26 +33,43 @@ export default class TabCommandController {
   private readonly window: _ZoteroTypes.MainWindow;
   private static readonly RELOAD_CLOSE_TIMEOUT_MS = 800;
   private static readonly RELOAD_CLOSE_POLL_MS = 20;
+  private static readonly READER_REOPEN_SETTLE_MS = 120;
+  private static readonly REOPEN_TAB_TIMEOUT_MS = 1200;
 
   constructor(window: _ZoteroTypes.MainWindow) {
     this.window = window;
   }
 
-  public select(tabId: string | null): void {
+  public select(tabId: string | null): boolean {
     if (!tabId) {
-      return;
+      return false;
     }
 
     const nativeTab = this.getNativeTab(tabId, false);
     if (!nativeTab) {
       ztoolkit.log("TabCommandController.select skipped missing tab", tabId);
-      return;
+      return false;
     }
 
     try {
       this.window.Zotero_Tabs.select(nativeTab.id);
+      return true;
     } catch (error) {
       ztoolkit.log("TabCommandController.select failed", tabId, error);
+      return false;
+    }
+  }
+
+  public hasOpenTab(tabId: string | null): boolean {
+    if (!tabId) {
+      return false;
+    }
+
+    try {
+      const nativeTab = this.getNativeTab(tabId, false);
+      return Boolean(nativeTab?.id);
+    } catch {
+      return false;
     }
   }
 
@@ -160,7 +179,30 @@ export default class TabCommandController {
 
       this.window.Zotero_Tabs.close(entry.tab.id);
       await this.waitForTabToClose(entry.tab.id);
-      await (Zotero as any).FileHandlers.open(item);
+      await this.wait(TabCommandController.READER_REOPEN_SETTLE_MS);
+      const attachmentID = await this.resolveAttachmentItemID({
+        itemID,
+        parentItemID: null,
+      });
+      if (attachmentID == null) {
+        const reopenItem = await this.resolveForegroundOpenItem({
+          itemID,
+          parentItemID: null,
+        });
+        if (!reopenItem) {
+          return;
+        }
+        await (Zotero as any).FileHandlers.open(reopenItem);
+        return;
+      }
+
+      await Zotero.Reader.open(attachmentID, undefined, {
+        openInBackground: true,
+      });
+      const reopenedTabId = await this.waitForReaderTab(attachmentID);
+      if (reopenedTabId) {
+        this.select(reopenedTabId);
+      }
     } catch (error) {
       ztoolkit.log("TabCommandController.reload failed", tabId, error);
     }
@@ -191,11 +233,11 @@ export default class TabCommandController {
     member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
   ): Promise<void> {
     try {
-      const attachment = await this.resolveAttachmentItem(member);
-      if (!attachment) {
+      const attachmentID = await this.resolveAttachmentItemID(member);
+      if (attachmentID == null) {
         return;
       }
-      await this.window.ZoteroPane.showAttachmentInFilesystem(attachment.id);
+      await this.window.ZoteroPane.showAttachmentInFilesystem(attachmentID);
     } catch (error) {
       ztoolkit.log("TabCommandController.showMemberInFilesystem failed", member, error);
     }
@@ -325,6 +367,18 @@ export default class TabCommandController {
     }
   }
 
+  private async waitForReaderTab(itemID: number): Promise<string | null> {
+    const start = Date.now();
+    while (Date.now() - start < TabCommandController.REOPEN_TAB_TIMEOUT_MS) {
+      const tabId = this.findReaderTabIdByItemID(itemID);
+      if (tabId) {
+        return tabId;
+      }
+      await this.wait(TabCommandController.RELOAD_CLOSE_POLL_MS);
+    }
+    return null;
+  }
+
   private wait(ms: number): Promise<void> {
     return new Promise((resolve) => {
       this.window.setTimeout(resolve, ms);
@@ -358,6 +412,52 @@ export default class TabCommandController {
     }
 
     return (await item.getBestAttachment?.()) ?? null;
+  }
+
+  private async resolveAttachmentItemID(
+    context: ItemContext,
+  ): Promise<number | null> {
+    const attachment = await this.resolveAttachmentItem(context);
+    return typeof attachment?.id === "number" ? attachment.id : null;
+  }
+
+  private async resolveForegroundOpenItem(context: ItemContext): Promise<any | null> {
+    const item = this.resolvePrimaryItem(context);
+    if (!item) {
+      return null;
+    }
+
+    if (item.isFileAttachment?.()) {
+      return item;
+    }
+
+    return (await item.getBestAttachment?.()) ?? item;
+  }
+
+  private findReaderTabIdByItemID(itemID: number): string | null {
+    const tabs = Array.isArray(this.window.Zotero_Tabs._tabs)
+      ? this.window.Zotero_Tabs._tabs
+      : [];
+
+    for (let index = tabs.length - 1; index >= 0; index -= 1) {
+      const tab = tabs[index] as
+        | {
+            id?: unknown;
+            type?: unknown;
+            data?: { itemID?: unknown; itemId?: unknown };
+          }
+        | undefined;
+      if (!tab || (tab.type !== "reader" && tab.type !== "reader-unloaded")) {
+        continue;
+      }
+
+      const tabItemID = tab.data?.itemID ?? tab.data?.itemId;
+      if (tabItemID === itemID && typeof tab.id === "string") {
+        return tab.id;
+      }
+    }
+
+    return null;
   }
 
   private copyReferenceForItem(item: any): void {
@@ -406,11 +506,11 @@ export default class TabCommandController {
     member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
   ): Promise<void> {
     try {
-      const attachment = await this.resolveAttachmentItem(member);
-      if (!attachment) {
+      const attachmentID = await this.resolveAttachmentItemID(member);
+      if (attachmentID == null) {
         return;
       }
-      await Zotero.Reader.open(attachment.id, undefined, {
+      await Zotero.Reader.open(attachmentID, undefined, {
         openInBackground: true,
       });
     } catch (error) {

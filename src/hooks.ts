@@ -1,5 +1,8 @@
 import { HelperExampleFactory, KeyExampleFactory } from "./modules/examples";
-import { initPreference, registerPrefsScripts } from "./modules/preferenceScript";
+import {
+  initPreference,
+  registerPrefsScripts,
+} from "./modules/preferenceScript";
 import TabEnhance from "./modules/tabEnhance";
 import VerticalTabSidebar from "./modules/verticalTabs/sidebar";
 import TabTrackerService from "./modules/verticalTabs/tabTracker";
@@ -178,6 +181,54 @@ function onShutdown(): void {
   delete Zotero[addon.data.config.addonInstance];
 }
 
+function isReaderTabPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  try {
+    const tabType = (payload as { type?: unknown }).type;
+    if (typeof tabType === "string" && tabType.startsWith("reader")) {
+      return true;
+    }
+
+    const icon = (payload as { data?: { icon?: unknown } }).data?.icon;
+    return icon === "attachmentPDF";
+  } catch {
+    return false;
+  }
+}
+
+function getTabNotifyPayload(
+  extraData: { [key: string]: any },
+  id: string | number,
+): unknown {
+  try {
+    return extraData?.[String(id)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isReaderLifecycleTabEvent(
+  event: string,
+  ids: Array<string | number>,
+  extraData: { [key: string]: any },
+): boolean {
+  if (event !== "add" && event !== "load" && event !== "select") {
+    return false;
+  }
+
+  const payloads = ids
+    .map((id) => getTabNotifyPayload(extraData, id))
+    .filter((payload) => payload != null);
+  if (payloads.length) {
+    return payloads.some((payload) => isReaderTabPayload(payload));
+  }
+
+  return false;
+}
+
 async function onNotify(
   event: string,
   type: string,
@@ -185,15 +236,29 @@ async function onNotify(
   extraData: { [key: string]: any },
 ) {
   if (type === "tab") {
+    const isReaderLifecycle = isReaderLifecycleTabEvent(event, ids, extraData);
+    if (isReaderLifecycle) {
+      addon.verticalTabSidebarInstances.forEach((verticalTabSidebar) => {
+        verticalTabSidebar.deferReaderMetadata();
+      });
+    }
+
     addon.tabTrackerInstances.forEach((tabTracker) => {
       const reason = `${event}:${ids.join(",")}`;
-      tabTracker.requestReconcile(reason);
       if (event === "add" || event === "load") {
-        tabTracker.scheduleDelayedReconcile(reason);
+        tabTracker.requestReconcile(reason, isReaderLifecycle ? 320 : 96);
+        tabTracker.scheduleDelayedReconcile(
+          reason,
+          isReaderLifecycle ? [900, 1600] : [240, 700],
+        );
+      } else if (isReaderLifecycle) {
+        tabTracker.requestReconcile(reason, 160);
+        tabTracker.scheduleDelayedReconcile(reason, [900]);
+      } else {
+        tabTracker.requestReconcile(reason);
       }
     });
   }
-
 }
 
 async function onPrefsEvent(type: string, data: { [key: string]: any }) {

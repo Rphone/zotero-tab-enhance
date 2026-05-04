@@ -29,6 +29,7 @@ export default class TabTrackerService {
   private pendingReconcileReason: string | null = null;
   private queuedReconcileTimer: number | null = null;
   private delayedReconcileTimers = new Set<number>();
+  private parentItemIDByItemID = new Map<number, number | null>();
 
   constructor(window: _ZoteroTypes.MainWindow) {
     this.window = window;
@@ -53,6 +54,7 @@ export default class TabTrackerService {
     this.initialized = false;
     this.snapshot = { tabs: [], selectedTabKey: null };
     this.openedAtByTabId.clear();
+    this.parentItemIDByItemID.clear();
     if (this.queuedReconcileTimer != null) {
       this.window.clearTimeout(this.queuedReconcileTimer);
       this.queuedReconcileTimer = null;
@@ -74,7 +76,7 @@ export default class TabTrackerService {
     };
   }
 
-  public reconcile(reason = "unknown"): TabTrackerSnapshot {
+  public reconcile(_reason = "unknown"): TabTrackerSnapshot {
     const runtimeTabs = this.readRuntimeTabs();
     const selectedID = this.window.Zotero_Tabs.selectedID ?? null;
     const visibleTabs = runtimeTabs.filter((tab) => this.shouldTrackTab(tab));
@@ -96,6 +98,17 @@ export default class TabTrackerService {
       }
     }
 
+    const activeItemIDs = new Set(
+      visibleTabs
+        .map((tab) => this.extractItemID(tab))
+        .filter((itemID): itemID is number => typeof itemID === "number"),
+    );
+    for (const itemID of Array.from(this.parentItemIDByItemID.keys())) {
+      if (!activeItemIDs.has(itemID)) {
+        this.parentItemIDByItemID.delete(itemID);
+      }
+    }
+
     const trackedTabs = runtimeTabs
       .map((tab, nativeIndex) => ({ tab, nativeIndex }))
       .filter(({ tab }) => this.shouldTrackTab(tab))
@@ -111,21 +124,11 @@ export default class TabTrackerService {
     };
 
     this.emit();
-    ztoolkit.log(
-      `TabTrackerService reconciled (${reason}) with ${trackedTabs.length} tabs`,
-      trackedTabs.map((tab) => ({
-        key: tab.key,
-        tabId: tab.tabId,
-        type: tab.type,
-        title: tab.title,
-        nativeIndex: tab.nativeIndex,
-      })),
-    );
 
     return this.getSnapshot();
   }
 
-  public requestReconcile(reason = "unknown", delay = 16): void {
+  public requestReconcile(reason = "unknown", delay = 48): void {
     if (!this.initialized) {
       return;
     }
@@ -167,8 +170,12 @@ export default class TabTrackerService {
 
   public scheduleDelayedReconcile(
     reason: string,
-    delays: number[] = [60, 180, 420],
+    delays: number[] = [120, 360],
   ): void {
+    if (!this.initialized) {
+      return;
+    }
+
     this.delayedReconcileTimers.forEach((timerId) =>
       this.window.clearTimeout(timerId),
     );
@@ -223,18 +230,6 @@ export default class TabTrackerService {
             ? stateTab.selected
             : internalTab.selected,
       });
-    });
-
-    ztoolkit.log("TabTrackerService runtime tab sources", {
-      internalCount: internalTabs.length,
-      stateCount: stateTabs.length,
-      mergedCount: mergedTabs.length,
-      sample: mergedTabs.map((tab) => ({
-        id: tab.id,
-        type: tab.type,
-        title: tab.title,
-        itemID: this.extractItemID(tab),
-      })),
     });
 
     return mergedTabs;
@@ -330,15 +325,23 @@ export default class TabTrackerService {
       return null;
     }
 
+    if (this.parentItemIDByItemID.has(itemID)) {
+      return this.parentItemIDByItemID.get(itemID) ?? null;
+    }
+
     try {
       const item = Zotero.Items.get(itemID);
       if (!item) {
+        this.parentItemIDByItemID.set(itemID, null);
         return null;
       }
 
-      return item.topLevelItem?.id ?? item.id ?? null;
+      const parentItemID = item.topLevelItem?.id ?? item.id ?? null;
+      this.parentItemIDByItemID.set(itemID, parentItemID);
+      return parentItemID;
     } catch (error) {
       ztoolkit.log("TabTrackerService failed to resolve parent item", error);
+      this.parentItemIDByItemID.set(itemID, null);
       return null;
     }
   }

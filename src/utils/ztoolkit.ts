@@ -16,10 +16,15 @@ function createZToolkit() {
 
 function initZToolkit(_ztoolkit: ReturnType<typeof createZToolkit>) {
   const env = __env__;
+  const isProduction = env === "production";
   _ztoolkit.basicOptions.log.prefix = `[${config.addonName}]`;
-  _ztoolkit.basicOptions.log.disableConsole = env === "production";
+  _ztoolkit.basicOptions.log.disableConsole = isProduction;
   _ztoolkit.UI.basicOptions.ui.enableElementJSONLog = __env__ === "development";
   _ztoolkit.UI.basicOptions.ui.enableElementDOMLog = __env__ === "development";
+  if (isProduction) {
+    (_ztoolkit as unknown as { log: (...args: unknown[]) => void }).log =
+      () => undefined;
+  }
   // Getting basicOptions.debug will load global modules like the debug bridge.
   // since we want to deprecate it, should avoid using it unless necessary.
   // _ztoolkit.basicOptions.debug.disableDebugBridgePassword =
