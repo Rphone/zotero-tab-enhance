@@ -229,6 +229,66 @@ function isReaderLifecycleTabEvent(
   return false;
 }
 
+function isDeferredReaderLoadTabEvent(
+  event: string,
+  ids: Array<string | number>,
+  extraData: { [key: string]: any },
+): boolean {
+  if (event !== "load") {
+    return false;
+  }
+
+  return ids.some((id) => {
+    const payload = getTabNotifyPayload(extraData, id);
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+
+    try {
+      const type = (payload as { type?: unknown }).type;
+      const prevType = (payload as { prevType?: unknown }).prevType;
+      return type === "reader" && prevType === "reader-loading";
+    } catch {
+      return false;
+    }
+  });
+}
+
+function getDeferredReaderLoadTabs(
+  ids: Array<string | number>,
+  extraData: { [key: string]: any },
+): Array<{
+  tabId: string;
+  type?: string;
+  title?: string;
+  itemID?: number | null;
+}> {
+  return ids.flatMap((id) => {
+    const payload = getTabNotifyPayload(extraData, id);
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+
+    try {
+      const type = (payload as { type?: unknown }).type;
+      const title = (payload as { title?: unknown }).title;
+      const itemID = (payload as { data?: { itemID?: unknown; itemId?: unknown } })
+        .data?.itemID ??
+        (payload as { data?: { itemId?: unknown } }).data?.itemId;
+      return [
+        {
+          tabId: String(id),
+          type: typeof type === "string" ? type : undefined,
+          title: typeof title === "string" ? title : undefined,
+          itemID: typeof itemID === "number" ? itemID : null,
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
+}
+
 async function onNotify(
   event: string,
   type: string,
@@ -237,10 +297,27 @@ async function onNotify(
 ) {
   if (type === "tab") {
     const isReaderLifecycle = isReaderLifecycleTabEvent(event, ids, extraData);
-    if (isReaderLifecycle) {
+    const isDeferredReaderLoad = isDeferredReaderLoadTabEvent(
+      event,
+      ids,
+      extraData,
+    );
+    if (isReaderLifecycle && (event === "add" || event === "load")) {
       addon.verticalTabSidebarInstances.forEach((verticalTabSidebar) => {
         verticalTabSidebar.deferReaderMetadata();
       });
+    }
+
+    if (isDeferredReaderLoad) {
+      const handled = Array.from(addon.verticalTabSidebarInstances.values()).some(
+        (verticalTabSidebar) =>
+          verticalTabSidebar.handleDeferredReaderLoad(
+            getDeferredReaderLoadTabs(ids, extraData),
+          ),
+      );
+      if (handled) {
+        return;
+      }
     }
 
     addon.tabTrackerInstances.forEach((tabTracker) => {

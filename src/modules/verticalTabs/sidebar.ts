@@ -31,7 +31,7 @@ const SIDEBAR = {
   ANIMATION_DURATION_MS: 250,
   SEARCH_DEBOUNCE_MS: 200,
   RENDER_DEBOUNCE_MS: 32,
-  READER_METADATA_DEFER_MS: 1200,
+  READER_METADATA_DEFER_MS: 1000,
   READER_REOPEN_SETTLE_MS: 120,
   DROP_HYSTERESIS: 8,
 } as const;
@@ -63,6 +63,13 @@ type AggregateSection = {
 type InlineGroupNameEditor =
   | { kind: "create"; sourceTab: TrackedTab; value: string }
   | { kind: "rename"; groupId: string; value: string };
+
+type DeferredReaderLoadTab = {
+  tabId: string;
+  type?: string;
+  title?: string;
+  itemID?: number | null;
+};
 
 export default class VerticalTabSidebar {
   private readonly window: _ZoteroTypes.MainWindow;
@@ -106,6 +113,8 @@ export default class VerticalTabSidebar {
   private readonly itemFieldCache = new Map<string, string>();
   private pendingRenderSnapshot: TabTrackerSnapshot | null = null;
   private pendingRenderTimer: number | null = null;
+  private lastRenderedSnapshotStructure: string | null = null;
+  private pendingReaderLoadRefreshTimer: number | null = null;
   private displayTitleMode = "title";
   private displaySubtitleMode = "source";
   private metadataDeferredUntil = 0;
@@ -275,9 +284,12 @@ export default class VerticalTabSidebar {
       }
     });
     this.unsubscribeTracker = this.tracker.subscribe((snapshot) => {
-      const groupSyncChanged = this.groupStore.syncTrackedTabs(
-        snapshot.tabs.map((tab) => this.normalizeTab(tab)),
-      );
+      const normalizedTabs = snapshot.tabs.map((tab) => this.normalizeTab(tab));
+      if (this.applySelectionOnlyUpdate(snapshot, normalizedTabs)) {
+        return;
+      }
+
+      const groupSyncChanged = this.groupStore.syncTrackedTabs(normalizedTabs);
       if (!groupSyncChanged) {
         this.requestRender(snapshot);
       }
@@ -309,6 +321,15 @@ export default class VerticalTabSidebar {
       Date.now() + duration,
     );
     this.scheduleMetadataResumeRender();
+  }
+
+  public handleDeferredReaderLoad(tabs: DeferredReaderLoadTab[]): boolean {
+    if (!this.initialized || !tabs.length || !this.patchLoadedReaderRows(tabs)) {
+      return false;
+    }
+
+    this.scheduleDeferredReaderLoadRefresh();
+    return true;
   }
 
   public getGroupsForContextMenu(): VirtualGroup[] {
@@ -362,6 +383,7 @@ export default class VerticalTabSidebar {
     this.unsubscribeGroupStore = undefined;
     this.cancelPendingRender();
     this.cancelMetadataResumeRender();
+    this.cancelDeferredReaderLoadRefresh();
     this.pendingGroupToggleTimers.forEach((timerId) => {
       this.window.clearTimeout(timerId);
     });
@@ -389,6 +411,7 @@ export default class VerticalTabSidebar {
     this.groupNameEditor = null;
     this.trackedTabsByKey.clear();
     this.trackedTabsByMemberKey.clear();
+    this.lastRenderedSnapshotStructure = null;
     this.clearDisplayMetadataCache();
     this.groupStore.destroy();
     this.clearDragState();
@@ -878,6 +901,143 @@ export default class VerticalTabSidebar {
     this.pendingRenderSnapshot = null;
   }
 
+  private applySelectionOnlyUpdate(
+    snapshot: TabTrackerSnapshot,
+    normalizedTabs: TrackedTab[],
+  ): boolean {
+    if (
+      this.pendingRenderTimer != null ||
+      !this.listContainer ||
+      this.groupNameEditor ||
+      this.draggedTabKey ||
+      this.draggedGroupId ||
+      this.draggedMemberKey ||
+      this.draggedHeaderGroupId
+    ) {
+      return false;
+    }
+
+    const snapshotStructure = this.getSnapshotStructure(snapshot);
+    if (
+      !this.lastRenderedSnapshotStructure ||
+      snapshotStructure !== this.lastRenderedSnapshotStructure
+    ) {
+      return false;
+    }
+
+    this.refreshTrackedTabMaps(
+      normalizedTabs.filter((tab) => this.shouldRenderTab(tab)),
+    );
+    this.updateSelectedRows(snapshot.selectedTabKey);
+    return true;
+  }
+
+  private updateSelectedRows(selectedTabKey: string | null): void {
+    if (!this.listContainer) {
+      return;
+    }
+
+    this.listContainer
+      .querySelectorAll<HTMLElement>(".tab-enhance-vertical-tab-row[data-tab-key]")
+      .forEach((row: HTMLElement) => {
+        const tabKey = row.dataset.tabKey ?? null;
+        const isSelected = selectedTabKey
+          ? tabKey === selectedTabKey
+          : Boolean(tabKey && this.trackedTabsByKey.get(tabKey)?.isSelected);
+        row.classList.toggle("is-selected", isSelected);
+        row.setAttribute("aria-selected", isSelected ? "true" : "false");
+        row.setAttribute("tabindex", isSelected ? "0" : "-1");
+      });
+  }
+
+  private patchLoadedReaderRows(tabs: DeferredReaderLoadTab[]): boolean {
+    if (!this.listContainer) {
+      return false;
+    }
+
+    const snapshotTabs = this.tracker
+      .getSnapshot()
+      .tabs.map((tab) => this.normalizeTab(tab));
+    let patched = false;
+
+    tabs.forEach((loadedTab) => {
+      const nextTab = this.normalizeTab({
+        ...(snapshotTabs.find((tab) => tab.tabId === loadedTab.tabId) ?? {
+          key: `tab:${loadedTab.tabId}`,
+          tabId: loadedTab.tabId,
+          type: "reader",
+          title: loadedTab.title ?? loadedTab.tabId,
+          itemID: loadedTab.itemID ?? null,
+          parentItemID: null,
+          isOpen: true,
+          isSelected: this.window.Zotero_Tabs.selectedID === loadedTab.tabId,
+          nativeIndex: 0,
+          openedAt: null,
+          iconKey: "reader",
+        }),
+        tabId: loadedTab.tabId,
+        type: loadedTab.type ?? "reader",
+        title: loadedTab.title?.trim() || loadedTab.tabId,
+        itemID: loadedTab.itemID ?? null,
+        iconKey: "reader",
+      });
+      const row = this.listContainer?.querySelector<HTMLElement>(
+        `.tab-enhance-vertical-tab-row[data-tab-id="${CSS.escape(loadedTab.tabId)}"]`,
+      );
+      if (!row) {
+        return;
+      }
+
+      row.dataset.tabKey = nextTab.key;
+      row.dataset.tabId = loadedTab.tabId;
+      row.dataset.nativeIndex = String(nextTab.nativeIndex);
+      row.title = nextTab.title;
+      row.replaceChildren(this.renderBadge(nextTab.iconKey));
+      if (!this.collapsed) {
+        row.appendChild(
+          this.renderRowContent(
+            this.getDisplayTitle(nextTab),
+            this.getDisplaySubtitle(nextTab),
+          ),
+        );
+        row.appendChild(
+          this.renderCloseButton(() => {
+            this.commandController.close(nextTab.tabId);
+          }),
+        );
+      }
+      patched = true;
+    });
+
+    if (patched) {
+      const patchedTabsById = new Map(tabs.map((tab) => [tab.tabId, tab]));
+      this.refreshTrackedTabMaps(
+        snapshotTabs
+          .map((tab) => {
+            const patchedTab = patchedTabsById.get(tab.tabId ?? "");
+            if (!patchedTab) {
+              return tab;
+            }
+            return this.normalizeTab({
+              ...tab,
+              type: patchedTab.type ?? "reader",
+              title: patchedTab.title?.trim() || tab.title,
+              itemID: patchedTab.itemID ?? tab.itemID,
+              iconKey: "reader",
+            });
+          })
+          .filter((tab) => this.shouldRenderTab(tab)),
+      );
+      this.updateSelectedRows(
+        this.window.Zotero_Tabs.selectedID
+          ? `tab:${this.window.Zotero_Tabs.selectedID}`
+          : null,
+      );
+    }
+
+    return patched;
+  }
+
   private isMetadataDeferred(): boolean {
     return Date.now() < this.metadataDeferredUntil;
   }
@@ -901,6 +1061,25 @@ export default class VerticalTabSidebar {
     }
   }
 
+  private scheduleDeferredReaderLoadRefresh(): void {
+    this.cancelDeferredReaderLoadRefresh();
+    const delay = Math.max(0, this.metadataDeferredUntil - Date.now());
+    this.pendingReaderLoadRefreshTimer = this.window.setTimeout(() => {
+      this.pendingReaderLoadRefreshTimer = null;
+      if (!this.initialized) {
+        return;
+      }
+      this.tracker.requestReconcile("deferred-reader-load", 0);
+    }, delay);
+  }
+
+  private cancelDeferredReaderLoadRefresh(): void {
+    if (this.pendingReaderLoadRefreshTimer != null) {
+      this.window.clearTimeout(this.pendingReaderLoadRefreshTimer);
+      this.pendingReaderLoadRefreshTimer = null;
+    }
+  }
+
   private render(snapshot: TabTrackerSnapshot): void {
     this.cancelPendingRender();
     if (!this.listContainer || !this.countBadge || !this.headerTitle) {
@@ -911,16 +1090,8 @@ export default class VerticalTabSidebar {
       .map((tab) => this.normalizeTab(tab))
       .filter((tab) => this.shouldRenderTab(tab));
 
-    this.trackedTabsByKey.clear();
-    this.trackedTabsByMemberKey.clear();
-    openTabs.forEach((tab) => {
-      this.trackedTabsByKey.set(tab.key, tab);
-      this.groupStore.getMemberLookupKeysFromTab(tab).forEach((key) => {
-        if (!this.trackedTabsByMemberKey.has(key)) {
-          this.trackedTabsByMemberKey.set(key, tab);
-        }
-      });
-    });
+    this.refreshTrackedTabMaps(openTabs);
+    this.lastRenderedSnapshotStructure = this.getSnapshotStructure(snapshot);
 
     const renderableGroups =
       this.viewMode === "default" ? this.getRenderableGroups(openTabs) : [];
@@ -1054,6 +1225,38 @@ export default class VerticalTabSidebar {
         this.renderAggregateSection(section, snapshot.selectedTabKey),
       );
     });
+  }
+
+  private refreshTrackedTabMaps(openTabs: TrackedTab[]): void {
+    this.trackedTabsByKey.clear();
+    this.trackedTabsByMemberKey.clear();
+    openTabs.forEach((tab) => {
+      this.trackedTabsByKey.set(tab.key, tab);
+      this.groupStore.getMemberLookupKeysFromTab(tab).forEach((key) => {
+        if (!this.trackedTabsByMemberKey.has(key)) {
+          this.trackedTabsByMemberKey.set(key, tab);
+        }
+      });
+    });
+  }
+
+  private getSnapshotStructure(snapshot: TabTrackerSnapshot): string {
+    return snapshot.tabs
+      .map((tab) =>
+        [
+          tab.key,
+          tab.tabId ?? "",
+          tab.type,
+          tab.title,
+          tab.itemID ?? "",
+          tab.parentItemID ?? "",
+          tab.isOpen ? "1" : "0",
+          tab.nativeIndex,
+          tab.openedAt ?? "",
+          tab.iconKey,
+        ].join("\u001f"),
+      )
+      .join("\u001e");
   }
 
   private getViewTitle(): string {
@@ -1733,6 +1936,9 @@ export default class VerticalTabSidebar {
     }) as HTMLDivElement;
 
     row.dataset.tabKey = tab.key;
+    if (tab.tabId) {
+      row.dataset.tabId = tab.tabId;
+    }
     row.dataset.nativeIndex = String(tab.nativeIndex);
     row.dataset.sortable = options.sortable ? "true" : "false";
     row.dataset.sortKind = options.groupId ? "group-members" : "tabs";
@@ -2410,7 +2616,7 @@ export default class VerticalTabSidebar {
         return false;
       }
       if (openItem.isFileAttachment?.()) {
-        await Zotero.Reader.open(openItem.id, undefined, {
+        await this.commandController.openAttachmentTab(openItem.id, {
           openInBackground: true,
         });
       } else {
@@ -3344,7 +3550,7 @@ export default class VerticalTabSidebar {
     if (this.displayItemIDCache.has(cacheKey)) {
       const cachedItemID = this.displayItemIDCache.get(cacheKey);
       return typeof cachedItemID === "number"
-        ? Zotero.Items.get(cachedItemID) ?? null
+        ? (Zotero.Items.get(cachedItemID) ?? null)
         : null;
     }
     for (const id of ids) {

@@ -16,7 +16,10 @@ export interface TabCommandItem {
   handler: () => Promise<void> | void;
 }
 
-type ItemContext = Pick<TrackedTab | VirtualGroupMember, "itemID" | "parentItemID">;
+type ItemContext = Pick<
+  TrackedTab | VirtualGroupMember,
+  "itemID" | "parentItemID"
+>;
 
 type NativeTabEntry = {
   tab: _ZoteroTypes.TabInstance;
@@ -26,15 +29,17 @@ type NativeTabEntry = {
 function isReaderTab(
   tab: _ZoteroTypes.TabInstance | TrackedTab | null | undefined,
 ) {
-  return Boolean(tab && (tab.type === "reader" || tab.type === "reader-unloaded"));
+  return Boolean(
+    tab && (tab.type === "reader" || tab.type === "reader-unloaded"),
+  );
 }
 
 export default class TabCommandController {
   private readonly window: _ZoteroTypes.MainWindow;
   private static readonly RELOAD_CLOSE_TIMEOUT_MS = 800;
   private static readonly RELOAD_CLOSE_POLL_MS = 20;
-  private static readonly READER_REOPEN_SETTLE_MS = 120;
-  private static readonly REOPEN_TAB_TIMEOUT_MS = 1200;
+  private static readonly READER_REOPEN_SETTLE_MS = 300;
+  private static readonly REOPEN_TAB_TIMEOUT_MS = 2000;
 
   constructor(window: _ZoteroTypes.MainWindow) {
     this.window = window;
@@ -84,13 +89,18 @@ export default class TabCommandController {
     }
 
     try {
-      this.window.Zotero_Tabs.close(nativeTab.id);
+      const closedTabId = nativeTab.id;
+      this.window.Zotero_Tabs.close(closedTabId);
+      this.scheduleClosedReaderCleanup(closedTabId);
     } catch (error) {
       ztoolkit.log("TabCommandController.close failed", tabId, error);
     }
   }
 
-  public moveOpenTabs(tabIds: string[] | string | null, targetIndex: number): void {
+  public moveOpenTabs(
+    tabIds: string[] | string | null,
+    targetIndex: number,
+  ): void {
     const normalizedTabIds = Array.from(
       new Set(
         (Array.isArray(tabIds) ? tabIds : [tabIds]).filter(
@@ -156,7 +166,11 @@ export default class TabCommandController {
       }
       await this.window.ZoteroPane.showAttachmentInFilesystem(attachment.id);
     } catch (error) {
-      ztoolkit.log("TabCommandController.showInFilesystem failed", tabId, error);
+      ztoolkit.log(
+        "TabCommandController.showInFilesystem failed",
+        tabId,
+        error,
+      );
     }
   }
 
@@ -176,19 +190,23 @@ export default class TabCommandController {
       if (!item) {
         return;
       }
-
-      this.window.Zotero_Tabs.close(entry.tab.id);
-      await this.waitForTabToClose(entry.tab.id);
-      await this.wait(TabCommandController.READER_REOPEN_SETTLE_MS);
       const attachmentID = await this.resolveAttachmentItemID({
         itemID,
         parentItemID: null,
       });
+      const reopenItem =
+        attachmentID == null
+          ? await this.resolveForegroundOpenItem({
+              itemID,
+              parentItemID: null,
+            })
+          : null;
+
+      this.window.Zotero_Tabs.close(entry.tab.id);
+      await this.waitForTabToClose(entry.tab.id);
+      await this.wait(TabCommandController.READER_REOPEN_SETTLE_MS);
+      this.releaseReaderForTabID(entry.tab.id);
       if (attachmentID == null) {
-        const reopenItem = await this.resolveForegroundOpenItem({
-          itemID,
-          parentItemID: null,
-        });
         if (!reopenItem) {
           return;
         }
@@ -196,16 +214,32 @@ export default class TabCommandController {
         return;
       }
 
-      await Zotero.Reader.open(attachmentID, undefined, {
-        openInBackground: true,
-      });
-      const reopenedTabId = await this.waitForReaderTab(attachmentID);
-      if (reopenedTabId) {
-        this.select(reopenedTabId);
-      }
+      await this.openAttachmentTab(attachmentID, { selectAfterOpen: true });
     } catch (error) {
       ztoolkit.log("TabCommandController.reload failed", tabId, error);
     }
+  }
+
+  public async openAttachmentTab(
+    attachmentID: number,
+    options: {
+      openInBackground?: boolean;
+      selectAfterOpen?: boolean;
+    } = {},
+  ): Promise<string | null> {
+    this.releaseStaleReadersForItem(attachmentID);
+    const reader = await Zotero.Reader.open(attachmentID, undefined, {
+      openInBackground: options.openInBackground,
+    });
+    const openedTabID =
+      typeof (reader as { tabID?: unknown } | undefined)?.tabID === "string"
+        ? (reader as { tabID: string }).tabID
+        : await this.waitForReaderTab(attachmentID);
+
+    if (options.selectAfterOpen && openedTabID) {
+      this.select(openedTabID);
+    }
+    return openedTabID;
   }
 
   public copyReference(tabId: string | null): void {
@@ -239,7 +273,11 @@ export default class TabCommandController {
       }
       await this.window.ZoteroPane.showAttachmentInFilesystem(attachmentID);
     } catch (error) {
-      ztoolkit.log("TabCommandController.showMemberInFilesystem failed", member, error);
+      ztoolkit.log(
+        "TabCommandController.showMemberInFilesystem failed",
+        member,
+        error,
+      );
     }
   }
 
@@ -253,7 +291,11 @@ export default class TabCommandController {
       }
       this.copyReferenceForItem(item);
     } catch (error) {
-      ztoolkit.log("TabCommandController.copyMemberReference failed", member, error);
+      ztoolkit.log(
+        "TabCommandController.copyMemberReference failed",
+        member,
+        error,
+      );
     }
   }
 
@@ -401,7 +443,9 @@ export default class TabCommandController {
     return null;
   }
 
-  private async resolveAttachmentItem(context: ItemContext): Promise<any | null> {
+  private async resolveAttachmentItem(
+    context: ItemContext,
+  ): Promise<any | null> {
     const item = this.resolvePrimaryItem(context);
     if (!item) {
       return null;
@@ -421,7 +465,9 @@ export default class TabCommandController {
     return typeof attachment?.id === "number" ? attachment.id : null;
   }
 
-  private async resolveForegroundOpenItem(context: ItemContext): Promise<any | null> {
+  private async resolveForegroundOpenItem(
+    context: ItemContext,
+  ): Promise<any | null> {
     const item = this.resolvePrimaryItem(context);
     if (!item) {
       return null;
@@ -469,8 +515,7 @@ export default class TabCommandController {
     );
     if (
       items.every(
-        (currentItem) =>
-          currentItem.isNote?.() || currentItem.isAttachment?.(),
+        (currentItem) => currentItem.isNote?.() || currentItem.isAttachment?.(),
       )
     ) {
       format = Zotero.QuickCopy.getNoteFormat();
@@ -510,11 +555,100 @@ export default class TabCommandController {
       if (attachmentID == null) {
         return;
       }
-      await Zotero.Reader.open(attachmentID, undefined, {
+      await this.openAttachmentTab(attachmentID, {
         openInBackground: true,
       });
     } catch (error) {
       ztoolkit.log("TabCommandController.loadMemberTab failed", member, error);
     }
+  }
+
+  private scheduleClosedReaderCleanup(tabId: string): void {
+    this.window.setTimeout(() => {
+      this.releaseReaderForTabID(tabId);
+    }, 0);
+    this.window.setTimeout(() => {
+      this.releaseReaderForTabID(tabId);
+    }, TabCommandController.READER_REOPEN_SETTLE_MS);
+  }
+
+  private releaseReaderForTabID(tabId: string): void {
+    const readers = (Zotero.Reader as unknown as { _readers?: unknown })
+      ._readers;
+    if (!Array.isArray(readers)) {
+      return;
+    }
+
+    for (const reader of [...readers]) {
+      try {
+        if ((reader as { tabID?: unknown })?.tabID !== tabId) {
+          continue;
+        }
+        this.disposeReader(reader);
+        const index = readers.indexOf(reader);
+        if (index >= 0) {
+          readers.splice(index, 1);
+        }
+      } catch (error) {
+        if (!this.isDeadObjectError(error)) {
+          ztoolkit.log("TabCommandController.releaseReaderForTabID failed", {
+            tabId,
+            error,
+          });
+        }
+      }
+    }
+  }
+
+  private releaseStaleReadersForItem(itemID: number): void {
+    const readers = (Zotero.Reader as unknown as { _readers?: unknown })
+      ._readers;
+    if (!Array.isArray(readers)) {
+      return;
+    }
+
+    for (const reader of [...readers]) {
+      try {
+        if ((reader as { itemID?: unknown })?.itemID !== itemID) {
+          continue;
+        }
+        const readerTabID = (reader as { tabID?: unknown })?.tabID;
+        if (
+          typeof readerTabID !== "string" ||
+          this.getNativeTab(readerTabID, false)
+        ) {
+          continue;
+        }
+        this.disposeReader(reader);
+        const index = readers.indexOf(reader);
+        if (index >= 0) {
+          readers.splice(index, 1);
+        }
+      } catch (error) {
+        if (!this.isDeadObjectError(error)) {
+          ztoolkit.log(
+            "TabCommandController.releaseStaleReadersForItem failed",
+            {
+              itemID,
+              error,
+            },
+          );
+        }
+      }
+    }
+  }
+
+  private disposeReader(reader: unknown): void {
+    try {
+      (reader as { uninit?: () => void })?.uninit?.();
+    } catch (error) {
+      if (!this.isDeadObjectError(error)) {
+        ztoolkit.log("TabCommandController.disposeReader failed", error);
+      }
+    }
+  }
+
+  private isDeadObjectError(error: unknown): boolean {
+    return String(error).includes("can't access dead object");
   }
 }
