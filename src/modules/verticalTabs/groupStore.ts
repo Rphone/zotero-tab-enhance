@@ -417,7 +417,17 @@ export default class TabGroupStore {
   }
 
   public getUngroupedTabs(tabs: TrackedTab[]): TrackedTab[] {
-    return [...tabs];
+    const groupedMemberKeys = new Set<string>();
+    this.groups.forEach((group) => {
+      group.members.forEach((member) => groupedMemberKeys.add(member.key));
+    });
+
+    return tabs.filter(
+      (tab) =>
+        !this.getMemberLookupKeysFromTab(tab).some((key) =>
+          groupedMemberKeys.has(key),
+        ),
+    );
   }
 
   public makeMemberKeyFromTab(tab: TrackedTab): string {
