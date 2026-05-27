@@ -248,7 +248,8 @@ export default class VerticalTabSidebar {
       this.commandController,
       this.groupStore,
       {
-        getTrackedTabByKey: (tabKey) => this.trackedTabsByKey.get(tabKey) ?? null,
+        getTrackedTabByKey: (tabKey) =>
+          this.trackedTabsByKey.get(tabKey) ?? null,
         getTrackedTabByMemberKey: (memberKey) =>
           this.trackedTabsByMemberKey.get(memberKey) ?? null,
       },
@@ -333,7 +334,11 @@ export default class VerticalTabSidebar {
   }
 
   public handleDeferredReaderLoad(tabs: DeferredReaderLoadTab[]): boolean {
-    if (!this.initialized || !tabs.length || !this.patchLoadedReaderRows(tabs)) {
+    if (
+      !this.initialized ||
+      !tabs.length ||
+      !this.patchLoadedReaderRows(tabs)
+    ) {
       return false;
     }
 
@@ -633,7 +638,9 @@ export default class VerticalTabSidebar {
     }
 
     this.listContainer
-      .querySelectorAll<HTMLElement>(".tab-enhance-vertical-tab-row[data-tab-key]")
+      .querySelectorAll<HTMLElement>(
+        ".tab-enhance-vertical-tab-row[data-tab-key]",
+      )
       .forEach((row: HTMLElement) => {
         const tabKey = row.dataset.tabKey ?? null;
         const isSelected = selectedTabKey
@@ -1409,9 +1416,9 @@ export default class VerticalTabSidebar {
       targetMemberKey,
       position,
       visibleKeys:
-        this.groupStore.findGroupById(targetGroupId ?? "")?.members.map(
-          (member) => member.key,
-        ) ?? [],
+        this.groupStore
+          .findGroupById(targetGroupId ?? "")
+          ?.members.map((member) => member.key) ?? [],
     });
   }
 
@@ -2375,7 +2382,12 @@ export default class VerticalTabSidebar {
       targetMemberKey,
       position,
       clearDragState: () => this.clearDragState(),
-      reorderMember: (groupId, sourceMemberKey, targetMemberKey, dropPosition) =>
+      reorderMember: (
+        groupId,
+        sourceMemberKey,
+        targetMemberKey,
+        dropPosition,
+      ) =>
         this.groupStore.reorderMember(
           groupId,
           sourceMemberKey,

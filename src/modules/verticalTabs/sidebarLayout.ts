@@ -2,6 +2,10 @@ import { config } from "../../../package.json";
 import { getString } from "../../utils/locale";
 import { SidebarElements, SidebarViewMode } from "./sidebarCommon";
 
+type ZoteroColorScheme = "auto" | "light" | "dark";
+
+const ZOTERO_COLOR_SCHEME_PREF = "browser.theme.toolbar-theme";
+
 type MountSidebarLayoutOptions = {
   window: _ZoteroTypes.MainWindow;
   document: Document;
@@ -19,7 +23,8 @@ export function mountSidebarLayout(
 ): SidebarElements | null {
   const deck = options.window.Zotero_Tabs.deck as unknown as XULElement | null;
   const deckParent = deck?.parentNode;
-  if (!deck || !deckParent) {
+  const deckParentElement = deck?.parentElement;
+  if (!deck || !deckParent || !deckParentElement) {
     return null;
   }
 
@@ -202,6 +207,18 @@ export function mountSidebarLayout(
 
   deckParent.insertBefore(splitter, deck);
   deckParent.insertBefore(sidebar, splitter);
+  syncSidebarThemeClass(
+    options.window,
+    options.document,
+    sidebar,
+    deckParentElement,
+  );
+  const themeCleanup = watchSidebarTheme(
+    options.window,
+    options.document,
+    sidebar,
+    deckParentElement,
+  );
 
   return {
     sidebar,
@@ -215,10 +232,12 @@ export function mountSidebarLayout(
     searchInput,
     contextMenu,
     stylesheet,
+    themeCleanup,
   };
 }
 
 export function removeSidebarLayout(elements: Partial<SidebarElements>): void {
+  elements.themeCleanup?.();
   elements.sidebar?.remove();
   elements.splitter?.remove();
   elements.contextMenu?.remove();
@@ -243,4 +262,168 @@ function ensureStylesheet(document: Document): HTMLElement {
   }) as HTMLElement;
   document.documentElement?.appendChild(link);
   return link;
+}
+
+function syncSidebarThemeClass(
+  window: _ZoteroTypes.MainWindow,
+  document: Document,
+  sidebar: XULElement,
+  deckParent: Element,
+): void {
+  sidebar.classList.toggle(
+    "is-dark-theme",
+    isDarkZoteroTheme(window, document, deckParent),
+  );
+}
+
+function watchSidebarTheme(
+  window: _ZoteroTypes.MainWindow,
+  document: Document,
+  sidebar: XULElement,
+  deckParent: Element,
+): () => void {
+  try {
+    const colorSchemeQuery = window.matchMedia?.(
+      "(prefers-color-scheme: dark)",
+    );
+    const syncTheme = () => {
+      syncSidebarThemeClass(window, document, sidebar, deckParent);
+    };
+    const cleanupHandlers: Array<() => void> = [];
+
+    if (colorSchemeQuery?.addEventListener) {
+      colorSchemeQuery.addEventListener("change", syncTheme);
+      cleanupHandlers.push(() => {
+        colorSchemeQuery.removeEventListener("change", syncTheme);
+      });
+    } else if (colorSchemeQuery?.addListener) {
+      colorSchemeQuery.addListener(syncTheme);
+      cleanupHandlers.push(() => {
+        colorSchemeQuery.removeListener(syncTheme);
+      });
+    }
+
+    const observerConstructor = window.MutationObserver;
+    if (observerConstructor && document.documentElement) {
+      const rootObserver = new observerConstructor(syncTheme);
+      rootObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["lwt-tree-brighttext", "lwtheme-brighttext"],
+      });
+      cleanupHandlers.push(() => {
+        rootObserver.disconnect();
+      });
+    }
+
+    return () => {
+      cleanupHandlers.forEach((cleanup) => cleanup());
+    };
+  } catch (_error) {
+    return () => undefined;
+  }
+}
+
+function isDarkZoteroTheme(
+  window: _ZoteroTypes.MainWindow,
+  document: Document,
+  deckParent: Element,
+): boolean {
+  const configuredScheme = getZoteroColorSchemePref();
+  if (configuredScheme === "dark") {
+    return true;
+  }
+  if (configuredScheme === "light") {
+    return false;
+  }
+
+  const colorSchemeQuery = window.matchMedia?.(
+    "(prefers-color-scheme: dark)",
+  );
+  if (colorSchemeQuery) {
+    return colorSchemeQuery.matches;
+  }
+
+  if (
+    document.documentElement?.hasAttribute("lwt-tree-brighttext") ||
+    document.documentElement?.hasAttribute("lwtheme-brighttext")
+  ) {
+    return true;
+  }
+
+  const candidates = [
+    deckParent,
+    document.getElementById("zotero-pane"),
+    document.getElementById("appcontent"),
+    document.body,
+    document.documentElement,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || !(candidate instanceof window.Element)) {
+      continue;
+    }
+    const computedStyle = window.getComputedStyle(candidate);
+    if (!computedStyle) {
+      continue;
+    }
+    const color = parseCssColor(computedStyle.backgroundColor);
+    if (!color) {
+      continue;
+    }
+    return getRelativeLuminance(color) < 0.38;
+  }
+
+  return false;
+}
+
+function getZoteroColorSchemePref(): ZoteroColorScheme | null {
+  try {
+    return normalizeZoteroColorSchemePref(
+      Zotero.Prefs.get(ZOTERO_COLOR_SCHEME_PREF),
+    );
+  } catch (_error) {
+    return null;
+  }
+}
+
+function normalizeZoteroColorSchemePref(
+  value: unknown,
+): ZoteroColorScheme | null {
+  const numericValue = typeof value === "string" ? Number(value) : value;
+  switch (numericValue) {
+    case 0:
+      return "dark";
+    case 1:
+      return "light";
+    case 2:
+      return "auto";
+    default:
+      return null;
+  }
+}
+
+function parseCssColor(value: string): [number, number, number] | null {
+  const match = value.match(
+    /^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)(?:\s*,\s*(\d+(?:\.\d+)?))?\s*\)$/i,
+  );
+  if (!match) {
+    return null;
+  }
+
+  const alpha = match[4] == null ? 1 : Number(match[4]);
+  if (alpha === 0) {
+    return null;
+  }
+
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function getRelativeLuminance([red, green, blue]: [number, number, number]) {
+  const [r, g, b] = [red, green, blue].map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
