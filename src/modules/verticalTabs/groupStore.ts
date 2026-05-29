@@ -59,7 +59,9 @@ export default class TabGroupStore {
     this.groups = this.groups.map((group) => ({
       ...group,
       members: group.members.map((member) => {
-        const liveTab = openTabsByMemberKey.get(member.key);
+        const liveTab = this.getMemberLookupKeysFromMember(member)
+          .map((key) => openTabsByMemberKey.get(key) ?? null)
+          .find((tab): tab is TrackedTab => Boolean(tab));
         if (!liveTab) {
           if (!member.isOpen || (!member.sourceTabKey && !member.tabId)) {
             return member;
@@ -419,7 +421,11 @@ export default class TabGroupStore {
   public getUngroupedTabs(tabs: TrackedTab[]): TrackedTab[] {
     const groupedMemberKeys = new Set<string>();
     this.groups.forEach((group) => {
-      group.members.forEach((member) => groupedMemberKeys.add(member.key));
+      group.members.forEach((member) => {
+        this.getMemberLookupKeysFromMember(member).forEach((key) => {
+          groupedMemberKeys.add(key);
+        });
+      });
     });
 
     return tabs.filter(
@@ -447,6 +453,18 @@ export default class TabGroupStore {
       tabId: tab.tabId,
       type: tab.type,
       title: tab.title,
+    });
+  }
+
+  private getMemberLookupKeysFromMember(
+    member: VirtualGroupMember,
+  ): string[] {
+    return makeVirtualMemberLookupKeys({
+      itemID: member.itemID,
+      parentItemID: member.parentItemID,
+      tabId: member.tabId,
+      type: member.type,
+      title: member.title,
     });
   }
 

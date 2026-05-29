@@ -100,6 +100,47 @@ describe("TabGroupStore", () => {
     );
   });
 
+  it("filters grouped tabs when member and tab keys are equivalent aliases", () => {
+    const groupedTab = makeTab({
+      key: "tab:reader-attachment",
+      tabId: "reader-attachment",
+      type: "reader",
+      itemID: 10,
+      parentItemID: 100,
+      nativeIndex: 0,
+    });
+    const ungroupedTab = makeTab({
+      key: "tab:other",
+      tabId: "other",
+      itemID: 20,
+      parentItemID: 200,
+      nativeIndex: 1,
+    });
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        members: [
+          makeMember({
+            key: "item:100",
+            tabId: null,
+            itemID: null,
+            parentItemID: 100,
+            type: "reader-unloaded",
+            isOpen: false,
+          }),
+        ],
+      }),
+    ]);
+
+    const ungroupedTabs = store.getUngroupedTabs([groupedTab, ungroupedTab]);
+
+    assert(ungroupedTabs.length === 1, "expected one ungrouped tab");
+    assert(
+      ungroupedTabs[0].key === "tab:other",
+      "expected alias-matched grouped tab to be hidden",
+    );
+  });
+
   it("marks a grouped member virtual when its tracked tab closes", () => {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     store.setGroups([
