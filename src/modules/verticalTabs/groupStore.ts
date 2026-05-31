@@ -95,15 +95,33 @@ export default class TabGroupStore {
   }
 
   public createGroupFromTab(tab: TrackedTab, name?: string): VirtualGroup {
-    const member = this.makeMemberFromTab(tab);
+    const group = this.createGroupFromTabs([tab], name);
+    if (!group) {
+      throw new Error("Failed to create group from tab");
+    }
+    return group;
+  }
+
+  public createGroupFromTabs(
+    tabs: TrackedTab[],
+    name?: string,
+  ): VirtualGroup | null {
+    const members = tabs
+      .map((tab) => this.makeMemberFromTab(tab))
+      .filter((member, index, allMembers) =>
+        allMembers.findIndex((item) => item.key === member.key) === index,
+      );
+    if (!members.length) {
+      return null;
+    }
 
     const group: VirtualGroup = {
       id: this.makeID("group"),
-      name: name?.trim() || this.buildDefaultGroupName(tab),
+      name: name?.trim() || this.buildDefaultGroupName(tabs[0]),
       color: this.pickNextColor(),
       collapsed: false,
       sortMode: "manual",
-      members: [member],
+      members,
     };
 
     this.groups = [...this.groups, group];

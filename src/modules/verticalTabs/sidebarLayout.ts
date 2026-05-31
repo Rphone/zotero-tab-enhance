@@ -10,7 +10,7 @@ type MountSidebarLayoutOptions = {
   window: _ZoteroTypes.MainWindow;
   document: Document;
   onToggleCollapsed: () => void;
-  onCreateGroupFromSelectedTab: () => void;
+  onCreateGroupFromUngroupedTabs: () => void;
   onSearchInput: (value: string) => void;
   onViewModeChange: (mode: SidebarViewMode) => void;
   onListDragOver: (event: DragEvent) => void;
@@ -91,7 +91,7 @@ export function mountSidebarLayout(
           listener: (event: Event) => {
             event.preventDefault();
             event.stopPropagation();
-            options.onCreateGroupFromSelectedTab();
+            options.onCreateGroupFromUngroupedTabs();
           },
         },
       ],

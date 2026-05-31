@@ -121,6 +121,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - When changing sidebar rendering or display formatting, prefer edits in `sidebarView.ts`; only touch `sidebar.ts` if the change affects orchestration, lifecycle, or cross-module state flow.
 - When changing sidebar persistence or restored-state shape, update `sidebarPersistence.ts` together with any preference defaults, tests, and this file if responsibilities change again.
 - When changing sidebar menu or drag behavior, keep `sidebarMenu.ts` and `sidebarDrag.ts` focused on isolated UI mechanics instead of re-expanding `sidebar.ts`.
+- The vertical sidebar header `+` button groups all currently ungrouped open tabs into one new group; the tab context-menu "Create Group" action remains the single-tab group creation path. Keep these behaviors separate when changing group creation.
 - When changing user-visible text, update locale files under `addon/locale/`.
 - Do not treat generated/package-facing assets in `addon/` as isolated from `src/`; verify whether the runtime change also requires matching packaged asset changes.
 

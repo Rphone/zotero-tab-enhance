@@ -141,6 +141,50 @@ describe("TabGroupStore", () => {
     );
   });
 
+  it("creates one group containing all requested tabs", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const firstTab = makeTab({
+      key: "tab:1",
+      tabId: "1",
+      itemID: 1,
+      nativeIndex: 0,
+      title: "First",
+    });
+    const secondTab = makeTab({
+      key: "tab:2",
+      tabId: "2",
+      itemID: 2,
+      nativeIndex: 1,
+      title: "Second",
+    });
+
+    const group = store.createGroupFromTabs([firstTab, secondTab], "Batch");
+
+    assert(group?.name === "Batch", "expected requested group name");
+    assert(group?.members.length === 2, "expected both tabs in one group");
+    assert(
+      JSON.stringify(group?.members.map((member) => member.key)) ===
+        JSON.stringify(["item:1", "item:2"]),
+      "expected group members to preserve tab order",
+    );
+  });
+
+  it("keeps single-tab group creation available", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const group = store.createGroupFromTab(
+      makeTab({
+        key: "tab:1",
+        tabId: "1",
+        itemID: 1,
+      }),
+      "Single",
+    );
+
+    assert(group.name === "Single", "expected single-tab group name");
+    assert(group.members.length === 1, "expected only one member");
+    assert(group.members[0].key === "item:1", "expected source tab member");
+  });
+
   it("marks a grouped member virtual when its tracked tab closes", () => {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     store.setGroups([

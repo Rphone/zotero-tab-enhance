@@ -440,7 +440,7 @@ export default class VerticalTabSidebar {
       window: this.window,
       document: this.document,
       onToggleCollapsed: () => this.toggleCollapsed(),
-      onCreateGroupFromSelectedTab: () => this.createGroupFromSelectedTab(),
+      onCreateGroupFromUngroupedTabs: () => this.createGroupFromUngroupedTabs(),
       onSearchInput: (value) => {
         this.searchQuery = value.trim().toLocaleLowerCase();
         this.persistSidebarState();
@@ -2043,20 +2043,36 @@ export default class VerticalTabSidebar {
     this.tracker.reconcile("failed-select");
   }
 
-  private createGroupFromSelectedTab(): void {
-    const selectedTab = this.tracker.getSelectedTab();
-    if (!selectedTab) {
+  private createGroupFromUngroupedTabs(): void {
+    const ungroupedTabs = this.groupStore.getUngroupedTabs(
+      this.tracker
+        .getTabs()
+        .map((tab) => this.normalizeTab(tab))
+        .filter((tab) => this.shouldRenderTab(tab)),
+    );
+    if (!ungroupedTabs.length) {
       return;
     }
 
-    this.beginCreateGroupEditor(this.normalizeTab(selectedTab));
+    this.beginCreateGroupEditorForTabs(ungroupedTabs, getString("new-group"));
   }
 
   private beginCreateGroupEditor(sourceTab: TrackedTab): void {
+    this.beginCreateGroupEditorForTabs([sourceTab], sourceTab.title);
+  }
+
+  private beginCreateGroupEditorForTabs(
+    sourceTabs: TrackedTab[],
+    value: string,
+  ): void {
+    if (!sourceTabs.length) {
+      return;
+    }
+
     this.groupNameEditor = {
       kind: "create",
-      sourceTab,
-      value: sourceTab.title,
+      sourceTabs,
+      value,
     };
     this.prepareInlineGroupNameEditor();
   }
@@ -2105,7 +2121,7 @@ export default class VerticalTabSidebar {
     const name = editor.value.trim() || getString("new-group");
     this.groupNameEditor = null;
     if (editor.kind === "create") {
-      this.groupStore.createGroupFromTab(editor.sourceTab, name);
+      this.groupStore.createGroupFromTabs(editor.sourceTabs, name);
     } else {
       this.groupStore.renameGroup(editor.groupId, name);
     }

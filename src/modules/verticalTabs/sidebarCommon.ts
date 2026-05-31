@@ -38,7 +38,7 @@ export type AggregateSection = {
 };
 
 export type InlineGroupNameEditor =
-  | { kind: "create"; sourceTab: TrackedTab; value: string }
+  | { kind: "create"; sourceTabs: TrackedTab[]; value: string }
   | { kind: "rename"; groupId: string; value: string };
 
 export type DeferredReaderLoadTab = {
