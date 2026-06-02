@@ -86,6 +86,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/addon.ts`: add-on state container. Holds global config, toolkit instance, and per-window feature instances.
 - `src/hooks.ts`: lifecycle and orchestration layer. Handles startup/shutdown, main-window load/unload, notifier registration, preference events, tab-notifier-triggered reconciles, and feature enable/disable syncing.
 - `src/modules/tabEnhance.ts`: horizontal tab enhancement module. Injects extra context-menu actions for tabs.
+- `src/modules/itemMenuEnhance.ts`: Zotero item context-menu module. Adds item-list actions that open selected items or attachments and place the resulting reader tabs into vertical-tab groups.
 - `src/modules/preferenceScript.ts`: preferences pane integration. Registers the preference pane, binds preference controls, and syncs UI state.
 - `src/modules/verticalTabs/sidebar.ts`: vertical tabs coordinator. Owns lifecycle wiring, subscriptions, global listeners, render scheduling, inline group-name edit flow, grouped-member reopen flow, and delegates layout/persistence/render/menu/drag helpers.
 - `src/modules/verticalTabs/sidebarCommon.ts`: shared vertical-sidebar constants and internal types for layout, drag state, persisted state, and menu/view coordination.
@@ -122,6 +123,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - When changing sidebar persistence or restored-state shape, update `sidebarPersistence.ts` together with any preference defaults, tests, and this file if responsibilities change again.
 - When changing sidebar menu or drag behavior, keep `sidebarMenu.ts` and `sidebarDrag.ts` focused on isolated UI mechanics instead of re-expanding `sidebar.ts`.
 - The vertical sidebar header `+` button groups all currently ungrouped open tabs into one new group; the tab context-menu "Create Group" action remains the single-tab group creation path. Keep these behaviors separate when changing group creation.
+- The Zotero item context-menu group actions live in `itemMenuEnhance.ts` and delegate actual opening/grouping to `VerticalTabSidebar`; keep item-menu UI separate from tab context-menu UI.
 - When changing user-visible text, update locale files under `addon/locale/`.
 - Do not treat generated/package-facing assets in `addon/` as isolated from `src/`; verify whether the runtime change also requires matching packaged asset changes.
 

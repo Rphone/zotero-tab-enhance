@@ -3,7 +3,7 @@
 [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template)
 ![Downloads latest release](https://img.shields.io/github/downloads/Rphone/zotero-tab-enhance/latest/total?color=yellow)
 
-[简体中文](../README.md) | English
+[简体中文](../readme.md) | English
 
 Tab Enhance is a Zotero plugin that adds more convenient tab-related features to Zotero.
 
@@ -73,6 +73,10 @@ Note: groups stay pinned at the top of the sidebar.
 
 #### Screenshot
 ![copy_ref](../assets/copy_ref.gif)
+
+## Contributing
+
+If you are interested in this project and want to contribute, pull requests are welcome. This project includes an `AGENTS.md` file with a simple development guide and project structure notes for AI coding agents, making it easier to get started with development.
 
 ## Acknowledgements and Feedback
 

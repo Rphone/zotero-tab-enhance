@@ -19,11 +19,6 @@ Tab Enhance是一个Zotero 插件，为Zotero的标签页添加了更多便捷�
 - **标签页分组**：可以将相关的标签页分组管理
 - **标签页搜索**：提供标签页搜索功能，快速定位需要的标签页
 
-### 提醒
-为了防止与其他插件的潜在冲突，上述功能安装后都不会默认启用。可以在插件设置中根据需要选择启用相应的功能。
-![settings screenshot](assets/settings.png)
-
-
 ## 安装
 
 1. 从[Releases页面](https://github.com/Rphone/zotero-tab-enhance/releases)下载最新的`.xpi`文件
@@ -79,6 +74,11 @@ Tab Enhance是一个Zotero 插件，为Zotero的标签页添加了更多便捷�
 
    #### 功能截图
    ![copy_ref](assets/copy_ref.gif)
+
+
+
+## 参与开发
+如果你对这个项目感兴趣，并且想要参与开发，欢迎提交PR, 本项目已经包含AGENTS.md文件，为AI编码代理提供了简单的开发指南和项目结构说明，便于快速上手开发。
 ## 感谢与反馈
 
 感谢[Zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template)项目提供的插件开发模板，极大地简化了插件的开发流程。

@@ -381,6 +381,47 @@ export default class VerticalTabSidebar {
     return true;
   }
 
+  public async openItemsIntoGroup(
+    items: any[],
+    groupId: string,
+  ): Promise<boolean> {
+    if (!groupId || !this.groupStore.findGroupById(groupId)) {
+      return false;
+    }
+
+    const trackedTabs = await this.openItemsAsTrackedTabs(items);
+    if (!trackedTabs.length) {
+      return false;
+    }
+
+    trackedTabs.forEach((tab) => {
+      this.groupStore.addTabToGroup(groupId, tab);
+    });
+    this.tracker.scheduleDelayedReconcile(
+      `item-menu-open-into-group:${groupId}`,
+      [120, 360, 720],
+    );
+    return true;
+  }
+
+  public async openItemsInNewGroup(
+    items: any[],
+    name = getString("new-group"),
+  ): Promise<boolean> {
+    const trackedTabs = await this.openItemsAsTrackedTabs(items);
+    if (!trackedTabs.length) {
+      return false;
+    }
+
+    this.groupStore.createGroupFromTabs(trackedTabs, name);
+    this.tracker.scheduleDelayedReconcile("item-menu-open-new-group", [
+      120,
+      360,
+      720,
+    ]);
+    return true;
+  }
+
   public destroy(): void {
     if (!this.initialized) {
       return;
@@ -2328,6 +2369,116 @@ export default class VerticalTabSidebar {
     }
 
     return (await item.getBestAttachment?.()) ?? item;
+  }
+
+  private async openItemsAsTrackedTabs(items: any[]): Promise<TrackedTab[]> {
+    const selectedItems = Array.isArray(items) ? items : [];
+    const selectedCount = selectedItems.length;
+    const openedTabs: TrackedTab[] = [];
+    const seenAttachmentIDs = new Set<number>();
+
+    for (const item of selectedItems) {
+      const attachment = await this.resolveOpenableAttachmentItem(item);
+      const attachmentID =
+        typeof attachment?.id === "number" ? attachment.id : null;
+      if (attachmentID == null || seenAttachmentIDs.has(attachmentID)) {
+        continue;
+      }
+      seenAttachmentIDs.add(attachmentID);
+
+      try {
+        const tabId = await this.commandController.openAttachmentTab(
+          attachmentID,
+          {
+            openInBackground: selectedCount > 1,
+            selectAfterOpen: selectedCount === 1,
+          },
+        );
+        if (!tabId) {
+          continue;
+        }
+
+        this.tracker.reconcile(`item-menu-open:${attachmentID}`);
+        openedTabs.push(
+          this.findTrackedTabByTabId(tabId) ??
+            this.makeTrackedTabFromAttachment(attachment, tabId),
+        );
+      } catch (error) {
+        ztoolkit.log("VerticalTabSidebar item menu open failed", {
+          attachmentID,
+          error,
+        });
+      }
+    }
+
+    return openedTabs;
+  }
+
+  private async resolveOpenableAttachmentItem(item: any): Promise<any | null> {
+    if (!item) {
+      return null;
+    }
+
+    try {
+      if (item.isFileAttachment?.()) {
+        return item;
+      }
+
+      const attachment = await item.getBestAttachment?.();
+      return attachment?.isFileAttachment?.() ? attachment : null;
+    } catch (error) {
+      ztoolkit.log("VerticalTabSidebar failed to resolve item attachment", {
+        itemID: item?.id,
+        error,
+      });
+      return null;
+    }
+  }
+
+  private makeTrackedTabFromAttachment(
+    attachment: any,
+    tabId: string,
+  ): TrackedTab {
+    const parentItem = attachment?.topLevelItem ?? null;
+    const parentItemID =
+      typeof attachment?.parentItemID === "number"
+        ? attachment.parentItemID
+        : typeof parentItem?.id === "number" && parentItem.id !== attachment.id
+          ? parentItem.id
+          : null;
+
+    return {
+      key: `tab:${tabId}`,
+      tabId,
+      type: "reader",
+      title: this.getItemTitle(parentItem ?? attachment),
+      itemID: typeof attachment?.id === "number" ? attachment.id : null,
+      parentItemID,
+      isOpen: true,
+      isSelected: false,
+      nativeIndex: this.tracker.getTabs().length,
+      openedAt: Date.now(),
+      iconKey: "reader",
+    };
+  }
+
+  private getItemTitle(item: any): string {
+    try {
+      const displayTitle = item?.getDisplayTitle?.();
+      if (typeof displayTitle === "string" && displayTitle.trim()) {
+        return displayTitle.trim();
+      }
+      const fieldTitle = item?.getField?.("title");
+      if (typeof fieldTitle === "string" && fieldTitle.trim()) {
+        return fieldTitle.trim();
+      }
+      if (typeof item?.title === "string" && item.title.trim()) {
+        return item.title.trim();
+      }
+    } catch {
+      // Fall through to the stable fallback below.
+    }
+    return "Untitled";
   }
 
   private showContextMenu(

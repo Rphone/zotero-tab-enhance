@@ -4,6 +4,7 @@ import {
   registerPrefsScripts,
 } from "./modules/preferenceScript";
 import TabEnhance from "./modules/tabEnhance";
+import ItemMenuEnhance from "./modules/itemMenuEnhance";
 import VerticalTabSidebar from "./modules/verticalTabs/sidebar";
 import TabTrackerService from "./modules/verticalTabs/tabTracker";
 import { initLocale } from "./utils/locale";
@@ -50,7 +51,25 @@ function syncWindowFeatures(win: _ZoteroTypes.MainWindow): void {
         ztoolkit.log("VerticalTabSidebar instance created for window");
       }
     }
+
+    if (!addon.itemMenuEnhanceInstances.has(win)) {
+      const itemMenuEnhance = new ItemMenuEnhance(
+        win,
+        () => addon.verticalTabSidebarInstances.get(win) ?? null,
+      );
+      if (itemMenuEnhance.init()) {
+        addon.itemMenuEnhanceInstances.set(win, itemMenuEnhance);
+        ztoolkit.log("ItemMenuEnhance instance created for window");
+      }
+    }
   } else {
+    const itemMenuEnhance = addon.itemMenuEnhanceInstances.get(win);
+    if (itemMenuEnhance) {
+      itemMenuEnhance.destroy();
+      addon.itemMenuEnhanceInstances.delete(win);
+      ztoolkit.log("ItemMenuEnhance instance destroyed for window");
+    }
+
     const verticalTabSidebar = addon.verticalTabSidebarInstances.get(win);
     if (verticalTabSidebar) {
       verticalTabSidebar.destroy();
@@ -131,6 +150,13 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
+  const itemMenuEnhance = addon.itemMenuEnhanceInstances.get(win);
+  if (itemMenuEnhance) {
+    itemMenuEnhance.destroy();
+    addon.itemMenuEnhanceInstances.delete(win);
+    ztoolkit.log("ItemMenuEnhance instance destroyed for window");
+  }
+
   const verticalTabSidebar = addon.verticalTabSidebarInstances.get(win);
   if (verticalTabSidebar) {
     verticalTabSidebar.destroy();
@@ -158,6 +184,11 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 
 function onShutdown(): void {
   unregisterTabNotifier();
+
+  addon.itemMenuEnhanceInstances.forEach((itemMenuEnhance) => {
+    itemMenuEnhance.destroy();
+  });
+  addon.itemMenuEnhanceInstances.clear();
 
   addon.verticalTabSidebarInstances.forEach((verticalTabSidebar) => {
     verticalTabSidebar.destroy();
