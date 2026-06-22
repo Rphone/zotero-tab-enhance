@@ -497,6 +497,12 @@ export default class SidebarViewRenderer {
     if (renderable.group.id === state.draggedHeaderGroupId) {
       header.classList.add("is-dragging");
     }
+    if (
+      renderable.group.id === state.dragOverGroupId &&
+      !state.dragOverMemberKey
+    ) {
+      header.classList.add("is-member-drop-target");
+    }
 
     const chevron = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
@@ -569,6 +575,14 @@ export default class SidebarViewRenderer {
         members.appendChild(this.renderDropPlaceholder());
       }
     });
+    if (
+      renderable.group.id === state.dragOverGroupId &&
+      !state.dragOverMemberKey &&
+      state.dragOverPosition === "after" &&
+      !renderable.group.collapsed
+    ) {
+      members.appendChild(this.renderDropPlaceholder());
+    }
 
     container.appendChild(members);
     return container;

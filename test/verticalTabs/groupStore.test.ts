@@ -227,4 +227,144 @@ describe("TabGroupStore", () => {
       "expected source group to move after target group",
     );
   });
+
+  it("moves a member before a target member in another group", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        members: [makeMember({ id: "member-1", key: "item:1" })],
+      }),
+      makeGroup({
+        id: "group-2",
+        members: [
+          makeMember({ id: "member-2", key: "item:2" }),
+          makeMember({ id: "member-3", key: "item:3" }),
+        ],
+      }),
+    ]);
+
+    store.moveMemberToGroup("group-1", "group-2", "item:1", "item:2", "before");
+
+    const groups = store.getGroups();
+    assert(groups.length === 1, "expected empty source group to be removed");
+    assert(groups[0].id === "group-2", "expected target group to remain");
+    assert(
+      JSON.stringify(groups[0].members.map((member) => member.key)) ===
+        JSON.stringify(["item:1", "item:2", "item:3"]),
+      "expected moved member before target member",
+    );
+  });
+
+  it("moves a member after a target member in another group", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        members: [
+          makeMember({ id: "member-1", key: "item:1" }),
+          makeMember({ id: "member-4", key: "item:4" }),
+        ],
+      }),
+      makeGroup({
+        id: "group-2",
+        members: [
+          makeMember({ id: "member-2", key: "item:2" }),
+          makeMember({ id: "member-3", key: "item:3" }),
+        ],
+      }),
+    ]);
+
+    store.moveMemberToGroup("group-1", "group-2", "item:1", "item:2", "after");
+
+    const groups = store.getGroups();
+    const sourceGroup = groups.find((group) => group.id === "group-1");
+    const targetGroup = groups.find((group) => group.id === "group-2");
+    assert(sourceGroup?.members.length === 1, "expected source member removed");
+    assert(
+      JSON.stringify(targetGroup?.members.map((member) => member.key)) ===
+        JSON.stringify(["item:2", "item:1", "item:3"]),
+      "expected moved member after target member",
+    );
+  });
+
+  it("keeps move-to-group append behavior without a target member", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        members: [
+          makeMember({ id: "member-1", key: "item:1" }),
+          makeMember({ id: "member-3", key: "item:3" }),
+        ],
+      }),
+      makeGroup({
+        id: "group-2",
+        members: [makeMember({ id: "member-2", key: "item:2" })],
+      }),
+    ]);
+
+    store.moveMemberToGroup("group-1", "group-2", "item:1");
+
+    const targetGroup = store
+      .getGroups()
+      .find((group) => group.id === "group-2");
+    assert(
+      JSON.stringify(targetGroup?.members.map((member) => member.key)) ===
+        JSON.stringify(["item:2", "item:1"]),
+      "expected move without target member to append",
+    );
+  });
+
+  it("adds an ungrouped tab before a target member", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        members: [
+          makeMember({ id: "member-2", key: "item:2", itemID: 2 }),
+          makeMember({ id: "member-3", key: "item:3", itemID: 3 }),
+        ],
+      }),
+    ]);
+
+    store.addTabToGroup(
+      "group-1",
+      makeTab({ key: "tab:1", tabId: "1", itemID: 1 }),
+      "item:2",
+      "before",
+    );
+
+    assert(
+      JSON.stringify(store.getGroups()[0].members.map((member) => member.key)) ===
+        JSON.stringify(["item:1", "item:2", "item:3"]),
+      "expected added tab before target member",
+    );
+  });
+
+  it("adds an ungrouped tab after a target member", () => {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        members: [
+          makeMember({ id: "member-2", key: "item:2", itemID: 2 }),
+          makeMember({ id: "member-3", key: "item:3", itemID: 3 }),
+        ],
+      }),
+    ]);
+
+    store.addTabToGroup(
+      "group-1",
+      makeTab({ key: "tab:1", tabId: "1", itemID: 1 }),
+      "item:2",
+      "after",
+    );
+
+    assert(
+      JSON.stringify(store.getGroups()[0].members.map((member) => member.key)) ===
+        JSON.stringify(["item:2", "item:1", "item:3"]),
+      "expected added tab after target member",
+    );
+  });
 });

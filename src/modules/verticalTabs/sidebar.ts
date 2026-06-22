@@ -22,6 +22,8 @@ import {
   commitGroupHeaderDrop,
   commitGroupMemberDrop,
   commitTabDrop,
+  commitGroupMemberToTabDrop,
+  commitTabToGroupDrop,
   createSidebarDragState,
   getDropPosition as resolveDropPosition,
   getSortableGroupHeaderFromEventTarget,
@@ -161,6 +163,31 @@ export default class VerticalTabSidebar {
       return;
     }
 
+    if (this.draggedGroupId && this.draggedMemberKey) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+
+      const targetGroupId = this.getGroupIdFromEventTarget(event.target);
+      if (
+        targetGroupId &&
+        targetGroupId === this.dragOverGroupId &&
+        this.dragOverPosition
+      ) {
+        this.updateDropIndicator();
+        return;
+      }
+
+      if (!targetGroupId && this.dragOverTabKey && this.dragOverPosition) {
+        this.updateDropIndicator();
+        return;
+      }
+
+      this.clearDropIndicator();
+      return;
+    }
+
     if (!this.draggedTabKey || this.draggedMemberKey) {
       return;
     }
@@ -168,6 +195,16 @@ export default class VerticalTabSidebar {
     event.preventDefault();
     if (event.dataTransfer) {
       event.dataTransfer.dropEffect = "move";
+    }
+
+    const targetGroupId = this.getGroupIdFromEventTarget(event.target);
+    if (
+      targetGroupId &&
+      targetGroupId === this.dragOverGroupId &&
+      this.dragOverPosition
+    ) {
+      this.updateDropIndicator();
+      return;
     }
 
     const row = this.getSortableRowFromEventTarget(event.target);
@@ -210,11 +247,53 @@ export default class VerticalTabSidebar {
       return;
     }
 
+    if (this.draggedGroupId && this.draggedMemberKey) {
+      event.preventDefault();
+      const targetGroupId = this.getGroupIdFromEventTarget(event.target);
+      if (
+        targetGroupId &&
+        targetGroupId === this.dragOverGroupId &&
+        this.dragOverPosition
+      ) {
+        this.commitGroupMemberDrop(
+          targetGroupId,
+          this.dragOverMemberKey,
+          this.dragOverPosition,
+        );
+        return;
+      }
+
+      if (!targetGroupId && this.dragOverTabKey && this.dragOverPosition) {
+        this.commitGroupMemberToTabDrop(
+          this.dragOverTabKey,
+          this.dragOverPosition,
+        );
+        return;
+      }
+
+      this.clearDragState();
+      return;
+    }
+
     if (!this.draggedTabKey || this.draggedMemberKey) {
       return;
     }
 
     event.preventDefault();
+    const targetGroupId = this.getGroupIdFromEventTarget(event.target);
+    if (
+      targetGroupId &&
+      targetGroupId === this.dragOverGroupId &&
+      this.dragOverPosition
+    ) {
+      this.commitTabToGroupDrop(
+        targetGroupId,
+        this.dragOverMemberKey,
+        this.dragOverPosition,
+      );
+      return;
+    }
+
     const row = this.getSortableRowFromEventTarget(event.target);
     if (row) {
       this.commitDrop(
@@ -1900,12 +1979,27 @@ export default class VerticalTabSidebar {
     if (this.draggedGroupId && this.draggedMemberKey) {
       const targetGroupId = row.dataset.groupId ?? null;
       const targetMemberKey = row.dataset.memberKey ?? null;
-      if (
-        !targetGroupId ||
-        !targetMemberKey ||
-        targetGroupId !== this.draggedGroupId ||
-        targetMemberKey === this.draggedMemberKey
-      ) {
+      if (!targetGroupId) {
+        const targetTabKey = row.dataset.tabKey ?? null;
+        if (!targetTabKey) {
+          event.preventDefault();
+          this.clearDropIndicator();
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "move";
+        }
+        this.setGroupMemberToTabDropIndicator(
+          targetTabKey,
+          this.getDropPosition(row, event),
+        );
+        return;
+      }
+
+      if (!targetMemberKey || targetMemberKey === this.draggedMemberKey) {
         event.preventDefault();
         this.clearDropIndicator();
         return;
@@ -1929,7 +2023,23 @@ export default class VerticalTabSidebar {
     }
 
     const tabKey = row.dataset.tabKey ?? null;
-    if (!tabKey || tabKey === this.draggedTabKey || row.dataset.groupId) {
+    const targetGroupId = row.dataset.groupId ?? null;
+    const targetMemberKey = row.dataset.memberKey ?? null;
+    if (targetGroupId && targetMemberKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      this.setTabToGroupDropIndicator(
+        targetGroupId,
+        targetMemberKey,
+        this.getDropPosition(row, event),
+      );
+      return;
+    }
+
+    if (!tabKey || tabKey === this.draggedTabKey) {
       event.preventDefault();
       this.clearDropIndicator();
       return;
@@ -1962,19 +2072,35 @@ export default class VerticalTabSidebar {
     if (this.draggedGroupId && this.draggedMemberKey) {
       const targetGroupId = row.dataset.groupId ?? null;
       const targetMemberKey = row.dataset.memberKey ?? null;
-      if (!targetGroupId || !targetMemberKey) {
+      if (!targetGroupId) {
+        this.commitGroupMemberToTabDrop(
+          row.dataset.tabKey ?? null,
+          this.getDropPosition(row, event),
+        );
+      } else if (targetMemberKey) {
+        this.commitGroupMemberDrop(
+          targetGroupId,
+          targetMemberKey,
+          this.getDropPosition(row, event),
+        );
+      } else {
         this.clearDragState();
-        return;
       }
-      this.commitGroupMemberDrop(
-        targetGroupId,
-        targetMemberKey,
-        this.getDropPosition(row, event),
-      );
       return;
     }
 
     if (!this.draggedTabKey) {
+      return;
+    }
+
+    const targetGroupId = row.dataset.groupId ?? null;
+    const targetMemberKey = row.dataset.memberKey ?? null;
+    if (targetGroupId && targetMemberKey) {
+      this.commitTabToGroupDrop(
+        targetGroupId,
+        targetMemberKey,
+        this.getDropPosition(row, event),
+      );
       return;
     }
 
@@ -2018,6 +2144,28 @@ export default class VerticalTabSidebar {
   };
 
   private readonly handleGroupHeaderDragOver = (event: DragEvent) => {
+    const header = event.currentTarget as HTMLDivElement | null;
+    const targetGroupId = header?.dataset.groupId ?? null;
+    if (this.draggedGroupId && this.draggedMemberKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      this.setGroupAppendDropIndicator(targetGroupId);
+      return;
+    }
+
+    if (this.draggedTabKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      this.setTabToGroupAppendDropIndicator(targetGroupId);
+      return;
+    }
+
     if (!this.draggedHeaderGroupId) {
       return;
     }
@@ -2038,6 +2186,22 @@ export default class VerticalTabSidebar {
   };
 
   private readonly handleGroupHeaderDrop = (event: DragEvent) => {
+    const header = event.currentTarget as HTMLDivElement | null;
+    const targetGroupId = header?.dataset.groupId ?? null;
+    if (this.draggedGroupId && this.draggedMemberKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.commitGroupMemberDrop(targetGroupId, null, "after");
+      return;
+    }
+
+    if (this.draggedTabKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.commitTabToGroupDrop(targetGroupId, null, "after");
+      return;
+    }
+
     if (!this.draggedHeaderGroupId) {
       return;
     }
@@ -2525,11 +2689,70 @@ export default class VerticalTabSidebar {
     });
   }
 
+  private commitTabToGroupDrop(
+    targetGroupId: string | null,
+    targetMemberKey: string | null,
+    position: DropPosition,
+  ): void {
+    const sourceTabKey = this.draggedTabKey;
+    const sourceTab = sourceTabKey
+      ? this.trackedTabsByKey.get(sourceTabKey) ?? null
+      : null;
+    if (
+      !targetGroupId ||
+      !sourceTab ||
+      this.groupStore.containsTab(targetGroupId, sourceTab)
+    ) {
+      this.clearDragState();
+      return;
+    }
+
+    if (
+      targetMemberKey &&
+      !this.groupStore
+        .findGroupById(targetGroupId)
+        ?.members.some((member) => member.key === targetMemberKey)
+    ) {
+      this.clearDragState();
+      return;
+    }
+
+    commitTabToGroupDrop({
+      sourceTabKey,
+      targetGroupId,
+      targetMemberKey,
+      position,
+      getTrackedTabByKey: (tabKey) =>
+        (tabKey ? this.trackedTabsByKey.get(tabKey) : null) ?? null,
+      clearDragState: () => this.clearDragState(),
+      addTabToGroup: (groupId, tab, memberKey, dropPosition) =>
+        this.groupStore.addTabToGroup(
+          groupId,
+          tab,
+          memberKey,
+          dropPosition,
+        ),
+    });
+    this.render(this.tracker.getSnapshot());
+  }
+
   private commitGroupMemberDrop(
     targetGroupId: string | null,
     targetMemberKey: string | null,
     position: DropPosition,
   ): void {
+    if (
+      !targetMemberKey &&
+      (!targetGroupId ||
+        targetGroupId === this.draggedGroupId ||
+        this.groupStore
+          .findGroupById(targetGroupId)
+          ?.members.some((member) => member.key === this.draggedMemberKey))
+    ) {
+      this.clearDragState();
+      return;
+    }
+
     if (
       this.isNoOpGroupMemberDropTarget(
         targetGroupId,
@@ -2561,7 +2784,55 @@ export default class VerticalTabSidebar {
           targetMemberKey,
           dropPosition,
         ),
+      moveMember: (
+        sourceGroupId,
+        targetGroupId,
+        sourceMemberKey,
+        targetMemberKey,
+        dropPosition,
+      ) =>
+        this.groupStore.moveMemberToGroup(
+          sourceGroupId,
+          targetGroupId,
+          sourceMemberKey,
+          targetMemberKey,
+          dropPosition,
+        ),
     });
+    this.render(this.tracker.getSnapshot());
+  }
+
+  private commitGroupMemberToTabDrop(
+    targetTabKey: string | null,
+    position: DropPosition,
+  ): void {
+    if (!targetTabKey || !this.findTrackedTabByMemberKey(this.draggedMemberKey ?? "")) {
+      this.clearDragState();
+      return;
+    }
+
+    commitGroupMemberToTabDrop({
+      sourceGroupId: this.draggedGroupId,
+      sourceMemberKey: this.draggedMemberKey,
+      targetTabKey,
+      position,
+      getTrackedTabByKey: (tabKey) =>
+        (tabKey ? this.trackedTabsByKey.get(tabKey) : null) ?? null,
+      getTrackedTabByMemberKey: (memberKey) =>
+        memberKey ? this.findTrackedTabByMemberKey(memberKey) : null,
+      clearDragState: () => this.clearDragState(),
+      removeMember: (groupId, memberKey) =>
+        this.groupStore.removeMember(groupId, memberKey),
+      moveOpenTabs: (tabIds, targetIndex) =>
+        this.commandController.moveOpenTabs(tabIds, targetIndex),
+      reconcile: (reason) => {
+        this.tracker.reconcile(reason);
+      },
+      scheduleDelayedReconcile: (reason, delays) => {
+        this.tracker.scheduleDelayedReconcile(reason, delays);
+      },
+    });
+    this.render(this.tracker.getSnapshot());
   }
 
   private commitGroupHeaderDrop(
@@ -2590,6 +2861,7 @@ export default class VerticalTabSidebar {
           dropPosition,
         ),
     });
+    this.render(this.tracker.getSnapshot());
   }
 
   private getDropPosition(row: HTMLDivElement, event: DragEvent): DropPosition {
@@ -2628,7 +2900,7 @@ export default class VerticalTabSidebar {
     this.dragOverGroupId = null;
     this.dragOverMemberKey = null;
     this.dragOverPosition = position;
-    this.render(this.tracker.getSnapshot());
+    this.updateDropIndicator();
   }
 
   private setGroupDropIndicator(
@@ -2640,7 +2912,6 @@ export default class VerticalTabSidebar {
       !groupId ||
       !memberKey ||
       !position ||
-      groupId !== this.draggedGroupId ||
       memberKey === this.draggedMemberKey
     ) {
       this.clearDropIndicator();
@@ -2665,7 +2936,160 @@ export default class VerticalTabSidebar {
     this.dragOverGroupId = groupId;
     this.dragOverMemberKey = memberKey;
     this.dragOverPosition = position;
-    this.render(this.tracker.getSnapshot());
+    this.updateDropIndicator();
+  }
+
+  private setTabToGroupDropIndicator(
+    groupId: string | null,
+    memberKey: string | null,
+    position: DropPosition | null,
+  ): void {
+    const sourceTab = this.draggedTabKey
+      ? this.trackedTabsByKey.get(this.draggedTabKey) ?? null
+      : null;
+    if (
+      !groupId ||
+      !memberKey ||
+      !position ||
+      !sourceTab ||
+      this.groupStore.containsTab(groupId, sourceTab)
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (
+      !this.groupStore
+        .findGroupById(groupId)
+        ?.members.some((member) => member.key === memberKey)
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (
+      this.dragOverGroupId === groupId &&
+      this.dragOverMemberKey === memberKey &&
+      this.dragOverPosition === position
+    ) {
+      this.updateDropIndicator();
+      return;
+    }
+
+    this.dragOverTabKey = null;
+    this.dragOverGroupId = groupId;
+    this.dragOverMemberKey = memberKey;
+    this.dragOverHeaderGroupId = null;
+    this.dragOverPosition = position;
+    this.updateDropIndicator();
+  }
+
+  private setGroupMemberToTabDropIndicator(
+    tabKey: string | null,
+    position: DropPosition | null,
+  ): void {
+    const sourceTab = this.draggedMemberKey
+      ? this.findTrackedTabByMemberKey(this.draggedMemberKey)
+      : null;
+    if (
+      !tabKey ||
+      !position ||
+      !sourceTab?.tabId ||
+      tabKey === sourceTab.key ||
+      !this.trackedTabsByKey.get(tabKey)
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (
+      this.dragOverTabKey === tabKey &&
+      this.dragOverPosition === position &&
+      !this.dragOverGroupId &&
+      !this.dragOverMemberKey
+    ) {
+      this.updateDropIndicator();
+      return;
+    }
+
+    this.dragOverTabKey = tabKey;
+    this.dragOverGroupId = null;
+    this.dragOverMemberKey = null;
+    this.dragOverHeaderGroupId = null;
+    this.dragOverPosition = position;
+    this.updateDropIndicator();
+  }
+
+  private setGroupAppendDropIndicator(groupId: string | null): void {
+    if (
+      !groupId ||
+      !this.draggedGroupId ||
+      !this.draggedMemberKey ||
+      groupId === this.draggedGroupId
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    const targetGroup = this.groupStore.findGroupById(groupId);
+    if (
+      !targetGroup ||
+      targetGroup.members.some((member) => member.key === this.draggedMemberKey)
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (
+      this.dragOverGroupId === groupId &&
+      !this.dragOverMemberKey &&
+      this.dragOverPosition === "after"
+    ) {
+      this.updateDropIndicator();
+      return;
+    }
+
+    this.dragOverTabKey = null;
+    this.dragOverGroupId = groupId;
+    this.dragOverMemberKey = null;
+    this.dragOverHeaderGroupId = null;
+    this.dragOverPosition = "after";
+    this.updateDropIndicator();
+  }
+
+  private setTabToGroupAppendDropIndicator(groupId: string | null): void {
+    const sourceTab = this.draggedTabKey
+      ? this.trackedTabsByKey.get(this.draggedTabKey) ?? null
+      : null;
+    if (
+      !groupId ||
+      !sourceTab ||
+      this.groupStore.containsTab(groupId, sourceTab)
+    ) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (!this.groupStore.findGroupById(groupId)) {
+      this.clearDropIndicator();
+      return;
+    }
+
+    if (
+      this.dragOverGroupId === groupId &&
+      !this.dragOverMemberKey &&
+      this.dragOverPosition === "after"
+    ) {
+      this.updateDropIndicator();
+      return;
+    }
+
+    this.dragOverTabKey = null;
+    this.dragOverGroupId = groupId;
+    this.dragOverMemberKey = null;
+    this.dragOverHeaderGroupId = null;
+    this.dragOverPosition = "after";
+    this.updateDropIndicator();
   }
 
   private setGroupHeaderDropIndicator(
@@ -2700,7 +3124,7 @@ export default class VerticalTabSidebar {
     this.dragOverMemberKey = null;
     this.dragOverHeaderGroupId = groupId;
     this.dragOverPosition = position;
-    this.render(this.tracker.getSnapshot());
+    this.updateDropIndicator();
   }
 
   private clearDropIndicator(): void {
@@ -2720,7 +3144,7 @@ export default class VerticalTabSidebar {
     this.dragOverMemberKey = null;
     this.dragOverHeaderGroupId = null;
     this.dragOverPosition = null;
-    this.render(this.tracker.getSnapshot());
+    this.updateDropIndicator();
   }
 
   private clearDragState(): void {
@@ -2750,6 +3174,17 @@ export default class VerticalTabSidebar {
     target: EventTarget | null,
   ): HTMLDivElement | null {
     return getSortableRowFromEventTarget(this.window, target);
+  }
+
+  private getGroupIdFromEventTarget(target: EventTarget | null): string | null {
+    const elementCtor = this.window.Element;
+    if (!elementCtor || !target || !(target instanceof elementCtor)) {
+      return null;
+    }
+    return (
+      (target as Element).closest(".tab-enhance-vertical-group[data-group-id]")
+        ?.getAttribute("data-group-id") ?? null
+    );
   }
 
   private resolveGroupHeaderDropTargetFromPoint(

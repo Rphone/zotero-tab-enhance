@@ -71,10 +71,13 @@ export function isNoOpGroupMemberDropTarget(args: {
     !sourceMemberKey ||
     !targetGroupId ||
     !targetMemberKey ||
-    !position ||
-    sourceGroupId !== targetGroupId
+    !position
   ) {
     return false;
+  }
+
+  if (sourceGroupId !== targetGroupId) {
+    return visibleKeys.includes(sourceMemberKey);
   }
 
   const sourceIndex = visibleKeys.indexOf(sourceMemberKey);
@@ -316,16 +319,137 @@ export function updateDropIndicator(
   });
 
   const headers = listContainer.querySelectorAll(
-    '.tab-enhance-vertical-group-header[data-sortable="true"][data-sort-kind="groups"]',
+    ".tab-enhance-vertical-group-header",
   );
   headers.forEach((node: Element) => {
     const header = node as HTMLDivElement;
     header.classList.remove("is-dragging");
+    header.classList.remove("is-member-drop-target");
     const groupId = header.dataset.groupId ?? null;
     if (groupId && groupId === dragState.draggedHeaderGroupId) {
       header.classList.add("is-dragging");
     }
   });
+
+  const placeholders = Array.from(
+    listContainer.querySelectorAll(".tab-enhance-vertical-tab-placeholder"),
+  ) as HTMLElement[];
+  if (!dragState.dragOverPosition) {
+    placeholders.forEach((placeholder) => placeholder.remove());
+    return;
+  }
+
+  const document = listContainer.ownerDocument;
+  if (!document) {
+    return;
+  }
+  const placeholder = placeholders.shift() ?? document.createElement("div");
+  placeholders.forEach((extraPlaceholder) => extraPlaceholder.remove());
+  if (!placeholder.classList.contains("tab-enhance-vertical-tab-placeholder")) {
+    placeholder.classList.add("tab-enhance-vertical-tab-placeholder");
+    placeholder.setAttribute("aria-hidden", "true");
+  }
+
+  if (dragState.dragOverHeaderGroupId) {
+    const group = findElementByData(
+      listContainer,
+      ".tab-enhance-vertical-group[data-group-id]",
+      "groupId",
+      dragState.dragOverHeaderGroupId,
+    );
+    if (!insertAtPosition(group, placeholder, dragState.dragOverPosition)) {
+      placeholder.remove();
+    }
+    return;
+  }
+
+  if (dragState.dragOverGroupId) {
+    const group = findElementByData(
+      listContainer,
+      ".tab-enhance-vertical-group[data-group-id]",
+      "groupId",
+      dragState.dragOverGroupId,
+    );
+    if (!group) {
+      placeholder.remove();
+      return;
+    }
+
+    const members = group.querySelector(
+      ".tab-enhance-vertical-group-members",
+    ) as HTMLElement | null;
+    if (!dragState.dragOverMemberKey) {
+      const header = group.querySelector(
+        ".tab-enhance-vertical-group-header",
+      ) as HTMLElement | null;
+      header?.classList.add("is-member-drop-target");
+      if (!group.classList.contains("is-collapsed")) {
+        members?.appendChild(placeholder);
+      } else {
+        placeholder.remove();
+      }
+      return;
+    }
+
+    const member = findElementByData(
+      members,
+      ".tab-enhance-vertical-tab-row[data-member-key]",
+      "memberKey",
+      dragState.dragOverMemberKey,
+    );
+    if (!insertAtPosition(member, placeholder, dragState.dragOverPosition)) {
+      placeholder.remove();
+    }
+    return;
+  }
+
+  if (dragState.dragOverTabKey) {
+    const tab = Array.from(
+      listContainer.querySelectorAll(
+        '.tab-enhance-vertical-tab-row[data-sort-kind="tabs"][data-tab-key]',
+      ),
+    ).find(
+      (node) =>
+        (node as HTMLElement).dataset.tabKey === dragState.dragOverTabKey,
+    ) as HTMLElement | undefined;
+    if (!insertAtPosition(tab ?? null, placeholder, dragState.dragOverPosition)) {
+      placeholder.remove();
+    }
+    return;
+  }
+
+  placeholder.remove();
+}
+
+function findElementByData(
+  container: ParentNode | null,
+  selector: string,
+  dataKey: string,
+  value: string,
+): HTMLElement | null {
+  if (!container) {
+    return null;
+  }
+  return (
+    (Array.from(container.querySelectorAll(selector)).find(
+      (node) => (node as HTMLElement).dataset[dataKey] === value,
+    ) as HTMLElement | undefined) ?? null
+  );
+}
+
+function insertAtPosition(
+  target: HTMLElement | null,
+  placeholder: HTMLElement,
+  position: DropPosition,
+): boolean {
+  if (!target?.parentNode) {
+    return false;
+  }
+  target.parentNode.insertBefore(
+    placeholder,
+    position === "before" ? target : target.nextSibling,
+  );
+  return true;
 }
 
 export function commitTabDrop(args: {
@@ -371,6 +495,13 @@ export function commitGroupMemberDrop(args: {
     targetMemberKey: string,
     position: DropPosition,
   ) => void;
+  moveMember: (
+    sourceGroupId: string,
+    targetGroupId: string,
+    sourceMemberKey: string,
+    targetMemberKey: string | null,
+    position: DropPosition,
+  ) => void;
 }): void {
   const {
     sourceGroupId,
@@ -383,8 +514,6 @@ export function commitGroupMemberDrop(args: {
     !sourceGroupId ||
     !sourceMemberKey ||
     !targetGroupId ||
-    !targetMemberKey ||
-    sourceGroupId !== targetGroupId ||
     sourceMemberKey === targetMemberKey
   ) {
     args.clearDragState();
@@ -392,7 +521,91 @@ export function commitGroupMemberDrop(args: {
   }
 
   args.clearDragState();
-  args.reorderMember(sourceGroupId, sourceMemberKey, targetMemberKey, position);
+  if (sourceGroupId === targetGroupId) {
+    if (!targetMemberKey) {
+      return;
+    }
+    args.reorderMember(
+      sourceGroupId,
+      sourceMemberKey,
+      targetMemberKey,
+      position,
+    );
+    return;
+  }
+
+  args.moveMember(
+    sourceGroupId,
+    targetGroupId,
+    sourceMemberKey,
+    targetMemberKey,
+    position,
+  );
+}
+
+export function commitTabToGroupDrop(args: {
+  sourceTabKey: string | null;
+  targetGroupId: string | null;
+  targetMemberKey: string | null;
+  position: DropPosition;
+  getTrackedTabByKey: (tabKey: string | null) => TrackedTab | null;
+  clearDragState: () => void;
+  addTabToGroup: (
+    groupId: string,
+    tab: TrackedTab,
+    targetMemberKey: string | null,
+    position: DropPosition,
+  ) => void;
+}): void {
+  const { sourceTabKey, targetGroupId, targetMemberKey, position } = args;
+  if (!sourceTabKey || !targetGroupId) {
+    args.clearDragState();
+    return;
+  }
+
+  const sourceTab = args.getTrackedTabByKey(sourceTabKey);
+  if (!sourceTab) {
+    args.clearDragState();
+    return;
+  }
+
+  args.clearDragState();
+  args.addTabToGroup(targetGroupId, sourceTab, targetMemberKey, position);
+}
+
+export function commitGroupMemberToTabDrop(args: {
+  sourceGroupId: string | null;
+  sourceMemberKey: string | null;
+  targetTabKey: string | null;
+  position: DropPosition;
+  getTrackedTabByKey: (tabKey: string | null) => TrackedTab | null;
+  getTrackedTabByMemberKey: (memberKey: string | null) => TrackedTab | null;
+  clearDragState: () => void;
+  removeMember: (groupId: string, memberKey: string) => void;
+  moveOpenTabs: (tabIds: string[], targetIndex: number) => void;
+  reconcile: (reason: string) => void;
+  scheduleDelayedReconcile: (reason: string, delays: number[]) => void;
+}): void {
+  const { sourceGroupId, sourceMemberKey, targetTabKey, position } = args;
+  if (!sourceGroupId || !sourceMemberKey || !targetTabKey) {
+    args.clearDragState();
+    return;
+  }
+
+  const sourceTab = args.getTrackedTabByMemberKey(sourceMemberKey);
+  const targetTab = args.getTrackedTabByKey(targetTabKey);
+  if (!sourceTab?.tabId || !targetTab?.tabId) {
+    args.clearDragState();
+    return;
+  }
+
+  const targetIndex = targetTab.nativeIndex + (position === "after" ? 1 : 0);
+  args.clearDragState();
+  args.removeMember(sourceGroupId, sourceMemberKey);
+  args.moveOpenTabs([sourceTab.tabId], targetIndex);
+  const reason = `sidebar-ungroup-move:${sourceTab.tabId}:${targetIndex}`;
+  args.reconcile(reason);
+  args.scheduleDelayedReconcile(reason, [80, 220]);
 }
 
 export function commitGroupHeaderDrop(args: {

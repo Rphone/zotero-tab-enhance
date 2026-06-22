@@ -129,14 +129,21 @@ export default class TabGroupStore {
     return { ...group, members: group.members.map((item) => ({ ...item })) };
   }
 
-  public addTabToGroup(groupId: string, tab: TrackedTab): void {
+  public addTabToGroup(
+    groupId: string,
+    tab: TrackedTab,
+    targetMemberKey?: string | null,
+    position?: "before" | "after",
+  ): void {
     const member = this.makeMemberFromTab(tab);
-    this.addMemberToGroup(groupId, member);
+    this.addMemberToGroup(groupId, member, targetMemberKey, position);
   }
 
   public addMemberToGroup(
     groupId: string,
     member: VirtualGroupMember,
+    targetMemberKey?: string | null,
+    position?: "before" | "after",
   ): void {
     let changed = false;
     this.groups = this.groups.map((group) => {
@@ -147,8 +154,44 @@ export default class TabGroupStore {
       const existingIndex = group.members.findIndex(
         (item) => item.key === member.key,
       );
-      changed = true;
+      if (targetMemberKey && position) {
+        const members = [...group.members];
+        const nextMember =
+          existingIndex >= 0
+            ? {
+                ...members[existingIndex],
+                ...member,
+                id: members[existingIndex].id,
+              }
+            : { ...member, id: this.makeID("member") };
+        if (existingIndex >= 0) {
+          members.splice(existingIndex, 1);
+        }
+
+        const targetIndex = members.findIndex(
+          (item) => item.key === targetMemberKey,
+        );
+        if (targetIndex < 0) {
+          return group;
+        }
+
+        changed = true;
+        const insertIndex = Math.max(
+          0,
+          Math.min(
+            targetIndex + (position === "after" ? 1 : 0),
+            members.length,
+          ),
+        );
+        members.splice(insertIndex, 0, nextMember);
+        return {
+          ...group,
+          members,
+        };
+      }
+
       if (existingIndex >= 0) {
+        changed = true;
         const members = [...group.members];
         members[existingIndex] = {
           ...members[existingIndex],
@@ -161,6 +204,7 @@ export default class TabGroupStore {
         };
       }
 
+      changed = true;
       return {
         ...group,
         members: [...group.members, { ...member, id: this.makeID("member") }],
@@ -176,6 +220,8 @@ export default class TabGroupStore {
     sourceGroupId: string,
     targetGroupId: string,
     memberKey: string,
+    targetMemberKey?: string | null,
+    position?: "before" | "after",
   ): void {
     if (
       !sourceGroupId ||
@@ -189,7 +235,16 @@ export default class TabGroupStore {
     const sourceGroup = this.groups.find((group) => group.id === sourceGroupId);
     const member =
       sourceGroup?.members.find((item) => item.key === memberKey) ?? null;
-    if (!member) {
+    const targetGroup = this.groups.find((group) => group.id === targetGroupId);
+    if (!member || !targetGroup) {
+      return;
+    }
+    if (
+      targetMemberKey &&
+      position &&
+      (targetMemberKey === memberKey ||
+        !targetGroup.members.some((item) => item.key === targetMemberKey))
+    ) {
       return;
     }
 
@@ -212,6 +267,41 @@ export default class TabGroupStore {
             (item) => item.key === member.key,
           );
           const members = [...group.members];
+          if (targetMemberKey && position) {
+            const nextMember =
+              existingIndex >= 0
+                ? {
+                    ...members[existingIndex],
+                    ...member,
+                    id: members[existingIndex].id,
+                  }
+                : { ...member, id: this.makeID("member") };
+            if (existingIndex >= 0) {
+              members.splice(existingIndex, 1);
+            }
+
+            const targetIndex = members.findIndex(
+              (item) => item.key === targetMemberKey,
+            );
+            if (targetIndex < 0) {
+              return group;
+            }
+
+            const insertIndex = Math.max(
+              0,
+              Math.min(
+                targetIndex + (position === "after" ? 1 : 0),
+                members.length,
+              ),
+            );
+            members.splice(insertIndex, 0, nextMember);
+            changed = true;
+            return {
+              ...group,
+              members,
+            };
+          }
+
           if (existingIndex >= 0) {
             members[existingIndex] = {
               ...members[existingIndex],
@@ -262,6 +352,20 @@ export default class TabGroupStore {
     if (changed) {
       this.emit();
     }
+  }
+
+  public containsTab(groupId: string, tab: TrackedTab): boolean {
+    const group = this.groups.find((item) => item.id === groupId);
+    if (!group) {
+      return false;
+    }
+
+    const tabLookupKeys = new Set(this.getMemberLookupKeysFromTab(tab));
+    return group.members.some((member) =>
+      this.getMemberLookupKeysFromMember(member).some((key) =>
+        tabLookupKeys.has(key),
+      ),
+    );
   }
 
 
