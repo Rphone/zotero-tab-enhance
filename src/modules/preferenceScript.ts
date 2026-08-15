@@ -1,6 +1,12 @@
 import { config } from "../../package.json";
 import { getString } from "../utils/locale";
-import { GROUP_COLOR_PREF_KEYS, getPref, setPref } from "../utils/prefs";
+import {
+  GROUP_COLOR_PREF_KEYS,
+  VERTICAL_TAB_STYLE_PREF_CONFIG,
+  getPref,
+  normalizeVerticalTabStylePrefValue,
+  setPref,
+} from "../utils/prefs";
 
 const PREF_CONTROL_CONFIG = [
   {
@@ -35,6 +41,19 @@ const DISPLAY_SELECT_CONFIG = [
   {
     id: `${config.addonRef}-pref-vertical-tab-subtitle-mode`,
     key: "verticalTabSubtitleMode" as const,
+  },
+] as const;
+
+const DISPLAY_NUMBER_INPUT_CONFIG = [
+  {
+    id: `${config.addonRef}-pref-vertical-tab-row-height`,
+    key: "verticalTabRowHeight" as const,
+    ...VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabRowHeight,
+  },
+  {
+    id: `${config.addonRef}-pref-vertical-tab-font-size`,
+    key: "verticalTabFontSize" as const,
+    ...VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabFontSize,
   },
 ] as const;
 
@@ -89,6 +108,25 @@ function bindPrefEvents() {
     });
   });
 
+  DISPLAY_NUMBER_INPUT_CONFIG.forEach(({ id, key }) => {
+    const input = prefsWindow.document.getElementById(
+      id,
+    ) as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    input.value = String(normalizeVerticalTabStylePrefValue(key, getPref(key)));
+    input.addEventListener("change", () => {
+      const value = normalizeVerticalTabStylePrefValue(
+        key,
+        input.valueAsNumber,
+      );
+      input.value = String(value);
+      setPref(key, value);
+      void addon.hooks.onPrefsEvent("displayPrefsChanged", {});
+    });
+  });
+
   GROUP_COLOR_INPUT_CONFIG.forEach(({ id, key }) => {
     const input = prefsWindow.document.getElementById(
       id,
@@ -101,7 +139,6 @@ function bindPrefEvents() {
       setPref(key, input.value as never);
       void addon.hooks.onPrefsEvent("displayPrefsChanged", {});
     };
-    input.addEventListener("input", syncColor);
     input.addEventListener("change", syncColor);
   });
 
@@ -111,7 +148,6 @@ function bindPrefEvents() {
       await addon.hooks.onPrefsEvent("resetPluginData", {
         window: prefsWindow,
       });
-      syncPrefControls(prefsWindow);
     });
 
   const prefsState = addon.data.prefs;
@@ -123,9 +159,7 @@ function bindPrefEvents() {
 function syncPrefControls(window: Window) {
   PREF_CONTROL_CONFIG.forEach(({ id, key }) => {
     const checkbox = window.document.getElementById(id) as
-      | HTMLInputElement
-      | XULCheckboxElement
-      | null;
+      HTMLInputElement | XULCheckboxElement | null;
     if (!checkbox) {
       return;
     }
@@ -143,6 +177,14 @@ function syncPrefControls(window: Window) {
       return;
     }
     select.value = String(getPref(key));
+  });
+
+  DISPLAY_NUMBER_INPUT_CONFIG.forEach(({ id, key }) => {
+    const input = window.document.getElementById(id) as HTMLInputElement | null;
+    if (!input) {
+      return;
+    }
+    input.value = String(normalizeVerticalTabStylePrefValue(key, getPref(key)));
   });
 
   GROUP_COLOR_INPUT_CONFIG.forEach(({ id, key }) => {

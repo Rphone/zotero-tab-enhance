@@ -58,6 +58,8 @@ export const GROUP_COLOR_PALETTE = [
   "#4FB286",
   "#9A6AF0",
   "#E28A3B",
+  "#38AFC7",
+  "#D65A9E",
 ] as const;
 
 export function makeVirtualMemberKey(input: {

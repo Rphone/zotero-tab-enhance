@@ -5,6 +5,19 @@ type PluginPrefsMap = _ZoteroTypes.Prefs["PluginPrefsMap"];
 type PrefValue = string | number | boolean;
 
 const PREFS_PREFIX = config.prefsPrefix;
+export const VERTICAL_TAB_STYLE_PREF_CONFIG = {
+  verticalTabRowHeight: {
+    defaultValue: 42,
+    min: 32,
+    max: 80,
+  },
+  verticalTabFontSize: {
+    defaultValue: 13,
+    min: 10,
+    max: 24,
+  },
+} as const;
+
 export const PLUGIN_PREF_KEYS = [
   "enableVerticalTabs",
   "enableHorizontalTabEnhance",
@@ -13,12 +26,16 @@ export const PLUGIN_PREF_KEYS = [
   "enableReloadTab",
   "verticalTabTitleMode",
   "verticalTabSubtitleMode",
+  "verticalTabRowHeight",
+  "verticalTabFontSize",
   "groupColor1",
   "groupColor2",
   "groupColor3",
   "groupColor4",
   "groupColor5",
   "groupColor6",
+  "groupColor7",
+  "groupColor8",
 ] as const;
 export const PERSISTED_STATE_PREF_KEYS = [
   "verticalTabs.sidebarState",
@@ -31,6 +48,8 @@ export const GROUP_COLOR_PREF_KEYS = [
   "groupColor4",
   "groupColor5",
   "groupColor6",
+  "groupColor7",
+  "groupColor8",
 ] as const;
 const DEFAULT_PREF_VALUES: PluginPrefsMap = {
   enableVerticalTabs: false,
@@ -40,12 +59,18 @@ const DEFAULT_PREF_VALUES: PluginPrefsMap = {
   enableReloadTab: true,
   verticalTabTitleMode: "title",
   verticalTabSubtitleMode: "source",
+  verticalTabRowHeight:
+    VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabRowHeight.defaultValue,
+  verticalTabFontSize:
+    VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabFontSize.defaultValue,
   groupColor1: GROUP_COLOR_PALETTE[0],
   groupColor2: GROUP_COLOR_PALETTE[1],
   groupColor3: GROUP_COLOR_PALETTE[2],
   groupColor4: GROUP_COLOR_PALETTE[3],
   groupColor5: GROUP_COLOR_PALETTE[4],
   groupColor6: GROUP_COLOR_PALETTE[5],
+  groupColor7: GROUP_COLOR_PALETTE[6],
+  groupColor8: GROUP_COLOR_PALETTE[7],
 };
 
 function normalizeHexColor(
@@ -62,6 +87,21 @@ function normalizeHexColor(
   }
 
   return trimmed.toUpperCase();
+}
+
+export function normalizeVerticalTabStylePrefValue(
+  key: keyof typeof VERTICAL_TAB_STYLE_PREF_CONFIG,
+  value: unknown,
+): number {
+  const prefConfig = VERTICAL_TAB_STYLE_PREF_CONFIG[key];
+  const numericValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return prefConfig.defaultValue;
+  }
+  return Math.min(
+    prefConfig.max,
+    Math.max(prefConfig.min, Math.round(numericValue)),
+  );
 }
 
 /**
@@ -131,6 +171,22 @@ export function getGroupColorPalette(): string[] {
   return GROUP_COLOR_PREF_KEYS.map((key, index) =>
     normalizeHexColor(getPref(key), GROUP_COLOR_PALETTE[index]),
   );
+}
+
+export function getVerticalTabStylePrefs(): {
+  rowHeight: number;
+  fontSize: number;
+} {
+  return {
+    rowHeight: normalizeVerticalTabStylePrefValue(
+      "verticalTabRowHeight",
+      getPref("verticalTabRowHeight"),
+    ),
+    fontSize: normalizeVerticalTabStylePrefValue(
+      "verticalTabFontSize",
+      getPref("verticalTabFontSize"),
+    ),
+  };
 }
 
 export function resetPluginPrefsToDefaults() {

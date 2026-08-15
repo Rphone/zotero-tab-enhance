@@ -1,5 +1,9 @@
 import { getString } from "../../utils/locale";
-import { getGroupColorPalette, getPref } from "../../utils/prefs";
+import {
+  getGroupColorPalette,
+  getPref,
+  getVerticalTabStylePrefs,
+} from "../../utils/prefs";
 import TabTrackerService from "./tabTracker";
 import TabCommandController, { TabCommandItem } from "./tabCommands";
 import TabGroupStore from "./groupStore";
@@ -365,6 +369,7 @@ export default class VerticalTabSidebar {
 
     this.restorePersistedState();
     this.refreshDisplayModeCache();
+    this.applyDisplayStylePrefs();
     this.initialized = true;
     this.unsubscribeGroupStore = this.groupStore.subscribe(() => {
       if (this.initialized) {
@@ -394,6 +399,7 @@ export default class VerticalTabSidebar {
       return;
     }
     this.refreshDisplayModeCache();
+    this.applyDisplayStylePrefs();
     this.clearDisplayMetadataCache();
     this.render(this.tracker.getSnapshot());
   }
@@ -3385,6 +3391,15 @@ export default class VerticalTabSidebar {
 
   private refreshDisplayModeCache(): void {
     this.viewRenderer.refreshDisplayModeCache();
+  }
+
+  private applyDisplayStylePrefs(): void {
+    if (!this.sidebar) {
+      return;
+    }
+    const { rowHeight, fontSize } = getVerticalTabStylePrefs();
+    this.sidebar.style.setProperty("--te-tab-row-height", `${rowHeight}px`);
+    this.sidebar.style.setProperty("--te-tab-font-size", `${fontSize}px`);
   }
 
   private findTrackedTabByMemberKey(

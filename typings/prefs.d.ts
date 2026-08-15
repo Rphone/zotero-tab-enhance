@@ -14,12 +14,16 @@ declare namespace _ZoteroTypes {
       "enableReloadTab": boolean;
       "verticalTabTitleMode": string;
       "verticalTabSubtitleMode": string;
+      "verticalTabRowHeight": number;
+      "verticalTabFontSize": number;
       "groupColor1": string;
       "groupColor2": string;
       "groupColor3": string;
       "groupColor4": string;
       "groupColor5": string;
       "groupColor6": string;
+      "groupColor7": string;
+      "groupColor8": string;
     };
   }
 }

@@ -7,6 +7,8 @@
 }
 
 .tab-enhance-vertical-tabs-sidebar {
+  --te-tab-row-height: 42px;
+  --te-tab-font-size: 13px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -293,7 +295,7 @@
   gap: 8px;
   align-self: flex-start;
   max-width: calc(100% - 6px);
-  min-height: 32px;
+  min-height: max(32px, calc(var(--te-tab-row-height) - 10px));
   padding: 6px 12px 6px 8px;
   border-radius: 14px;
   background: linear-gradient(
@@ -367,7 +369,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: max(10px, calc(var(--te-tab-font-size) - 1px));
   font-weight: 700;
 }
 
@@ -501,7 +503,7 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 42px;
+  min-height: var(--te-tab-row-height);
   padding: 8px;
   border: 0;
   border-radius: 10px;
@@ -561,7 +563,7 @@
 }
 
 .tab-enhance-vertical-tab-row.is-group-member {
-  min-height: 38px;
+  min-height: max(32px, calc(var(--te-tab-row-height) - 4px));
 }
 
 .tab-enhance-vertical-tab-row.is-virtual-member {
@@ -661,7 +663,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--te-tab-font-size);
   font-weight: 600;
 }
 
@@ -671,7 +673,7 @@
   white-space: nowrap;
   margin-top: 2px;
   color: color-mix(in srgb, currentColor 60%, transparent);
-  font-size: 11px;
+  font-size: max(9px, calc(var(--te-tab-font-size) - 2px));
 }
 
 .tab-enhance-vertical-tab-close {

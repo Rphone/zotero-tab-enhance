@@ -1,0 +1,52 @@
+.tab-enhance-pref-control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 16px;
+  max-width: 680px;
+}
+
+.tab-enhance-pref-field {
+  display: grid;
+  gap: 5px;
+}
+
+.tab-enhance-pref-field select,
+.tab-enhance-pref-field input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+}
+
+.tab-enhance-pref-color-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(104px, 1fr));
+  gap: 8px;
+  max-width: 680px;
+}
+
+.tab-enhance-pref-color-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 3%, transparent);
+  cursor: pointer;
+}
+
+.tab-enhance-pref-color-option:hover {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.tab-enhance-pref-color-option input[type="color"] {
+  box-sizing: border-box;
+  width: 42px;
+  height: 28px;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}

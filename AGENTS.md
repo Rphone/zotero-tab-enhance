@@ -88,7 +88,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/modules/tabEnhance.ts`: horizontal tab enhancement module. Injects extra context-menu actions for tabs.
 - `src/modules/itemMenuEnhance.ts`: Zotero item context-menu module. Adds item-list actions that open selected items or attachments and place the resulting reader tabs into vertical-tab groups.
 - `src/modules/preferenceScript.ts`: preferences pane integration. Registers the preference pane, binds preference controls, and syncs UI state.
-- `src/modules/verticalTabs/sidebar.ts`: vertical tabs coordinator. Owns lifecycle wiring, subscriptions, global listeners, render scheduling, inline group-name edit flow, grouped-member reopen flow, and delegates layout/persistence/render/menu/drag helpers.
+- `src/modules/verticalTabs/sidebar.ts`: vertical tabs coordinator. Owns lifecycle wiring, subscriptions, global listeners, render scheduling, display-style preference application, inline group-name edit flow, grouped-member reopen flow, and delegates layout/persistence/render/menu/drag helpers.
 - `src/modules/verticalTabs/sidebarCommon.ts`: shared vertical-sidebar constants and internal types for layout, drag state, persisted state, and menu/view coordination.
 - `src/modules/verticalTabs/sidebarLayout.ts`: sidebar DOM mount/unmount helper. Creates the sidebar shell, splitter, search input, view switcher, and context-menu host elements.
 - `src/modules/verticalTabs/sidebarPersistence.ts`: sidebar persistence helper. Restores and persists sidebar UI state and group snapshots, and sanitizes restored group/member payloads.
@@ -100,12 +100,13 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/modules/verticalTabs/tabCommands.ts`: command adapter for native tab operations such as select, close, move, reload, show in filesystem, and copy reference.
 - `src/modules/verticalTabs/collapsible.ts`: helper logic for collapsible group UI state and measured heights.
 - `src/modules/verticalTabs/types.ts`: shared types and constants for the vertical-tabs subsystem.
-- `src/utils/prefs.ts`: plugin preference access, defaults, JSON persistence helpers, and reset logic.
+- `src/utils/prefs.ts`: plugin preference access, bounded vertical-tab and group-header display metrics, defaults (including the eight group-color slots), JSON persistence helpers, and reset logic.
 - `src/utils/locale.ts`: localization helpers for Fluent strings.
 - `src/utils/window.ts`: window-related helpers.
 - `src/utils/ztoolkit.ts`: toolkit creation and shared toolkit setup.
 - `addon/`: packaged add-on assets shipped to Zotero, including `manifest.json`, `bootstrap.js`, `prefs.js`, preference markup, CSS, icons, and locale files.
 - `addon/content/preferences.xhtml`: preference pane markup.
+- `addon/content/preferences.css`: responsive preference-pane layout and control styling.
 - `addon/content/zoteroPane.css`: main shipped styles for Zotero pane and vertical tab UI.
 - `addon/locale/*`: localized Fluent resources for add-on text.
 - `assets/`: design or repository assets not directly acting as runtime source code.

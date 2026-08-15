@@ -21,6 +21,8 @@ pref-vertical-tab-subtitle-mode-source = Source (journal/conference/book)
 pref-vertical-tab-subtitle-mode-creator-year = Creator and Year
 pref-vertical-tab-subtitle-mode-type-and-item = Type and Item ID
 pref-vertical-tab-subtitle-mode-none = Hidden
+pref-vertical-tab-row-height = Tab height (pixels, minimum 32)
+pref-vertical-tab-font-size = Tab text size (pixels, minimum 10)
 
 pref-group-colors = Group Base Colors
 pref-group-color-1 = Color 1
@@ -29,6 +31,8 @@ pref-group-color-3 = Color 3
 pref-group-color-4 = Color 4
 pref-group-color-5 = Color 5
 pref-group-color-6 = Color 6
+pref-group-color-7 = Color 7
+pref-group-color-8 = Color 8
 
 pref-data-reset = Data Reset
 pref-reset-plugin-data = Clear all persisted plugin data and restore the initial state

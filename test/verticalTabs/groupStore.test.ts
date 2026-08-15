@@ -185,6 +185,25 @@ describe("TabGroupStore", () => {
     assert(group.members[0].key === "item:1", "expected source tab member");
   });
 
+  it("cycles through all eight default group colors", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const colors = Array.from(
+      { length: 8 },
+      (_, index) =>
+        store.createGroupFromTab(
+          makeTab({
+            key: `tab:${index + 1}`,
+            tabId: String(index + 1),
+            itemID: index + 1,
+          }),
+        ).color,
+    );
+
+    assert(new Set(colors).size === 8, "expected eight distinct group colors");
+    assert(colors[6] === "#38AFC7", "expected the seventh group color");
+    assert(colors[7] === "#D65A9E", "expected the eighth group color");
+  });
+
   it("marks a grouped member virtual when its tracked tab closes", () => {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     store.setGroups([
