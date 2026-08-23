@@ -84,7 +84,7 @@ export default class SidebarMenuController {
     }
 
     this.commandController
-      .getContextMenuItems(tracked.tabId)
+      .getSidebarContextMenuItems(tracked.tabId)
       .forEach((item) =>
         contextMenu.appendChild(this.renderContextMenuItem(contextMenu, item)),
       );
@@ -120,7 +120,7 @@ export default class SidebarMenuController {
     const liveTab = this.lookups.getTrackedTabByMemberKey(member.key);
     if (liveTab) {
       this.commandController
-        .getContextMenuItems(liveTab.tabId)
+        .getSidebarContextMenuItems(liveTab.tabId)
         .forEach((item) =>
           contextMenu.appendChild(
             this.renderContextMenuItem(contextMenu, item),

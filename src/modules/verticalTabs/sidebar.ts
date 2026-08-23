@@ -102,6 +102,7 @@ export default class VerticalTabSidebar {
   private pendingRenderSnapshot: TabTrackerSnapshot | null = null;
   private pendingRenderTimer: number | null = null;
   private lastRenderedSnapshotStructure: string | null = null;
+  private lastSelectedTabKey: string | null = null;
   private pendingReaderLoadRefreshTimer: number | null = null;
   private displayTitleMode = "title";
   private displaySubtitleMode = "source";
@@ -377,8 +378,20 @@ export default class VerticalTabSidebar {
         this.requestRender(this.tracker.getSnapshot());
       }
     });
+    this.lastSelectedTabKey = this.tracker.getSnapshot().selectedTabKey;
     this.unsubscribeTracker = this.tracker.subscribe((snapshot) => {
       const normalizedTabs = snapshot.tabs.map((tab) => this.normalizeTab(tab));
+      const selectionChanged =
+        snapshot.selectedTabKey !== this.lastSelectedTabKey;
+      this.lastSelectedTabKey = snapshot.selectedTabKey;
+      if (selectionChanged) {
+        const selectedTab = normalizedTabs.find(
+          (tab) => tab.key === snapshot.selectedTabKey,
+        );
+        if (selectedTab) {
+          this.groupStore.expandGroupsContainingTab(selectedTab);
+        }
+      }
       if (this.applySelectionOnlyUpdate(snapshot, normalizedTabs)) {
         return;
       }
@@ -554,6 +567,7 @@ export default class VerticalTabSidebar {
     this.trackedTabsByKey.clear();
     this.trackedTabsByMemberKey.clear();
     this.lastRenderedSnapshotStructure = null;
+    this.lastSelectedTabKey = null;
     this.clearDisplayMetadataCache();
     this.groupStore.destroy();
     this.clearDragState();

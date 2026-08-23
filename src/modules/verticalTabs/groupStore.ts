@@ -518,6 +518,34 @@ export default class TabGroupStore {
     }
   }
 
+  public expandGroupsContainingTab(tab: TrackedTab): boolean {
+    const tabLookupKeys = new Set(this.getMemberLookupKeysFromTab(tab));
+    let changed = false;
+    this.groups = this.groups.map((group) => {
+      if (
+        !group.collapsed ||
+        !group.members.some((member) =>
+          this.getMemberLookupKeysFromMember(member).some((key) =>
+            tabLookupKeys.has(key),
+          ),
+        )
+      ) {
+        return group;
+      }
+
+      changed = true;
+      return {
+        ...group,
+        collapsed: false,
+      };
+    });
+
+    if (changed) {
+      this.emit();
+    }
+    return changed;
+  }
+
   public setColor(groupId: string, color: string): void {
     let changed = false;
     this.groups = this.groups.map((group) => {

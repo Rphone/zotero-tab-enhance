@@ -224,6 +224,65 @@ describe("TabGroupStore", () => {
     assert(member.tabId === null, "expected closed member tab id cleared");
   });
 
+  it("expands collapsed groups containing the focused tab", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        id: "group-1",
+        collapsed: true,
+        members: [makeMember({})],
+      }),
+      makeGroup({
+        id: "group-2",
+        collapsed: true,
+        members: [
+          makeMember({
+            id: "member-2",
+            key: "item:100",
+            tabId: null,
+            type: "reader-unloaded",
+            itemID: null,
+            parentItemID: 100,
+            isOpen: false,
+          }),
+        ],
+      }),
+      makeGroup({
+        id: "group-3",
+        collapsed: true,
+        members: [
+          makeMember({
+            id: "member-3",
+            key: "item:3",
+            tabId: "3",
+            itemID: 3,
+          }),
+        ],
+      }),
+    ]);
+
+    const changed = store.expandGroupsContainingTab(
+      makeTab({
+        key: "tab:1",
+        tabId: "1",
+        itemID: 1,
+        parentItemID: 100,
+      }),
+    );
+    const groups = store.getGroups();
+
+    assert(changed, "expected matching collapsed groups to change");
+    assert(!groups[0].collapsed, "expected direct member group expanded");
+    assert(!groups[1].collapsed, "expected alias-matched group expanded");
+    assert(groups[2].collapsed, "expected unrelated group to stay collapsed");
+    assert(
+      !store.expandGroupsContainingTab(
+        makeTab({ key: "tab:1", tabId: "1", itemID: 1, parentItemID: 100 }),
+      ),
+      "expected already expanded groups to remain unchanged",
+    );
+  });
+
   it("reorders groups around the requested target position", () => {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     store.setGroups([

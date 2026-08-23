@@ -4,6 +4,7 @@ import { TrackedTab, VirtualGroupMember } from "./types";
 
 export type TabCommandID =
   | "close"
+  | "show-in-library"
   | "show-in-filesystem"
   | "reload"
   | "load"
@@ -174,6 +175,20 @@ export default class TabCommandController {
     }
   }
 
+  public showInLibrary(tabId: string | null): void {
+    try {
+      const tab = this.getNativeTab(tabId);
+      const itemID = tab?.data?.itemID;
+      if (typeof itemID !== "number") {
+        return;
+      }
+
+      this.showItemInLibrary({ itemID, parentItemID: null });
+    } catch (error) {
+      ztoolkit.log("TabCommandController.showInLibrary failed", tabId, error);
+    }
+  }
+
   public async reload(tabId: string | null): Promise<void> {
     try {
       const entry = this.getNativeTabEntry(tabId);
@@ -281,6 +296,20 @@ export default class TabCommandController {
     }
   }
 
+  public showMemberInLibrary(
+    member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
+  ): void {
+    try {
+      this.showItemInLibrary(member);
+    } catch (error) {
+      ztoolkit.log(
+        "TabCommandController.showMemberInLibrary failed",
+        member,
+        error,
+      );
+    }
+  }
+
   public copyMemberReference(
     member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
   ): void {
@@ -340,12 +369,30 @@ export default class TabCommandController {
     return items;
   }
 
+  public getSidebarContextMenuItems(tabId: string | null): TabCommandItem[] {
+    return [
+      {
+        id: "show-in-library",
+        label: Zotero.getString("general.showInLibrary"),
+        handler: () => this.showInLibrary(tabId),
+      },
+      ...this.getContextMenuItems(tabId),
+    ];
+  }
+
   public getVirtualMemberContextMenuItems(
     member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
   ): TabCommandItem[] {
     const primaryItemCandidate = this.resolvePrimaryItem(member);
     const referenceCandidate = primaryItemCandidate;
-    const items: TabCommandItem[] = [];
+    const items: TabCommandItem[] = [
+      {
+        id: "show-in-library",
+        label: Zotero.getString("general.showInLibrary"),
+        disabled: !primaryItemCandidate,
+        handler: () => this.showMemberInLibrary(member),
+      },
+    ];
 
     if (getPref("enableCopyReference")) {
       items.push({
@@ -478,6 +525,21 @@ export default class TabCommandController {
     }
 
     return (await item.getBestAttachment?.()) ?? item;
+  }
+
+  private showItemInLibrary(context: ItemContext): void {
+    const item = this.resolvePrimaryItem(context);
+    if (!item) {
+      return;
+    }
+
+    const itemID =
+      typeof item.parentItemID === "number" ? item.parentItemID : item.id;
+    if (typeof itemID !== "number") {
+      return;
+    }
+
+    this.window.ZoteroPane_Local.selectItem(itemID);
   }
 
   private findReaderTabIdByItemID(itemID: number): string | null {

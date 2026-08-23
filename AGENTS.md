@@ -88,7 +88,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/modules/tabEnhance.ts`: horizontal tab enhancement module. Injects extra context-menu actions for tabs.
 - `src/modules/itemMenuEnhance.ts`: Zotero item context-menu module. Adds item-list actions that open selected items or attachments and place the resulting reader tabs into vertical-tab groups.
 - `src/modules/preferenceScript.ts`: preferences pane integration. Registers the preference pane, binds preference controls, and syncs UI state.
-- `src/modules/verticalTabs/sidebar.ts`: vertical tabs coordinator. Owns lifecycle wiring, subscriptions, global listeners, render scheduling, display-style preference application, inline group-name edit flow, grouped-member reopen flow, and delegates layout/persistence/render/menu/drag helpers.
+- `src/modules/verticalTabs/sidebar.ts`: vertical tabs coordinator. Owns lifecycle wiring, subscriptions, active-tab selection transitions, global listeners, render scheduling, display-style preference application, inline group-name edit flow, grouped-member reopen flow, and delegates layout/persistence/render/menu/drag helpers.
 - `src/modules/verticalTabs/sidebarCommon.ts`: shared vertical-sidebar constants and internal types for layout, drag state, persisted state, and menu/view coordination.
 - `src/modules/verticalTabs/sidebarLayout.ts`: sidebar DOM mount/unmount helper. Creates the sidebar shell, splitter, search input, view switcher, and context-menu host elements.
 - `src/modules/verticalTabs/sidebarPersistence.ts`: sidebar persistence helper. Restores and persists sidebar UI state and group snapshots, and sanitizes restored group/member payloads.
@@ -96,8 +96,8 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/modules/verticalTabs/sidebarDrag.ts`: sidebar drag-and-drop helper. Owns drag-state shape plus no-op detection, drop-target resolution, and drop commit helpers.
 - `src/modules/verticalTabs/sidebarView.ts`: sidebar renderer. Owns aggregate/default view rendering, row/group DOM creation, search/display formatting, and display-metadata cache helpers.
 - `src/modules/verticalTabs/tabTracker.ts`: tab tracking service. Reads Zotero runtime tab state, normalizes tab snapshots, and notifies subscribers.
-- `src/modules/verticalTabs/groupStore.ts`: in-memory group state manager. Owns group creation, membership, ungrouped-tab filtering, reordering, collapse state, and synchronization with tracked tabs.
-- `src/modules/verticalTabs/tabCommands.ts`: command adapter for native tab operations such as select, close, move, reload, show in filesystem, and copy reference.
+- `src/modules/verticalTabs/groupStore.ts`: in-memory group state manager. Owns group creation, membership, ungrouped-tab filtering, reordering, collapse state (including focused-tab expansion), and synchronization with tracked tabs.
+- `src/modules/verticalTabs/tabCommands.ts`: command adapter for native tab operations such as select, close, move, reload, show in library, show in filesystem, and copy reference.
 - `src/modules/verticalTabs/collapsible.ts`: helper logic for collapsible group UI state and measured heights.
 - `src/modules/verticalTabs/types.ts`: shared types and constants for the vertical-tabs subsystem.
 - `src/utils/prefs.ts`: plugin preference access, bounded vertical-tab and group-header display metrics, defaults (including the eight group-color slots), JSON persistence helpers, and reset logic.
@@ -123,6 +123,8 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - When changing sidebar rendering or display formatting, prefer edits in `sidebarView.ts`; only touch `sidebar.ts` if the change affects orchestration, lifecycle, or cross-module state flow.
 - When changing sidebar persistence or restored-state shape, update `sidebarPersistence.ts` together with any preference defaults, tests, and this file if responsibilities change again.
 - When changing sidebar menu or drag behavior, keep `sidebarMenu.ts` and `sidebarDrag.ts` focused on isolated UI mechanics instead of re-expanding `sidebar.ts`.
+- The vertical-sidebar tab and group-member context menus expose Zotero's native "Show in Library" action through `ZoteroPane_Local.selectItem`; keep this sidebar-only menu entry separate from `tabEnhance.ts` so the horizontal native menu does not receive a duplicate item.
+- When the active Zotero tab changes, every collapsed vertical group containing that tab automatically expands. Routine reconciles with an unchanged selection must not reopen a group that the user manually collapsed, and unrelated groups must remain unchanged.
 - The vertical sidebar header `+` button groups all currently ungrouped open tabs into one new group; the tab context-menu "Create Group" action remains the single-tab group creation path. Keep these behaviors separate when changing group creation.
 - Dragging a vertical group member onto another visible member row inserts before/after that row; dragging it onto another group header appends it to that group. Dragging an ungrouped visible tab onto a group member/header adds it to that group, and dragging an open group member onto the ungrouped tab list removes it from its group and repositions the open tab there. Keep duplicate-member targets and closed-member-to-ungrouped targets as no-ops that clear the drag indicator.
 - The Zotero item context-menu group actions live in `itemMenuEnhance.ts` and delegate actual opening/grouping to `VerticalTabSidebar`; keep item-menu UI separate from tab context-menu UI.
