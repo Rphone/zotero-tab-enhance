@@ -25,7 +25,7 @@ Tab Enhance 是一个 Zotero 标签页增强插件。它提供可搜索、可分
 
 > 垂直标签栏和水平标签右键增强默认关闭，安装后需要在插件设置中启用。水平标签页中的分组入口依赖垂直标签栏。
 
-![settings](assets\settings_full_zh.png)
+![settings](assets/settings_full_zh.png)
 
 
 ## 垂直标签页侧边栏
@@ -63,7 +63,7 @@ Tab Enhance 是一个 Zotero 标签页增强插件。它提供可搜索、可分
 
 创建或重命名分组时可直接在侧边栏中编辑名称，按 `Enter` 确认，按 `Esc` 取消。
 
-![group](assets\create_group.gif)
+![group](assets/create_group.gif)
 
 ### 分组管理
 
@@ -79,7 +79,7 @@ Tab Enhance 是一个 Zotero 标签页增强插件。它提供可搜索、可分
 
 分组中的阅读器标签关闭后不会从分组删除，而是显示为关闭状态。点击该成员或选择“加载标签页”即可重新打开；也可以通过分组菜单批量恢复。
 
-![close](assets\close_resume.gif)
+![close](assets/close_resume.gif)
 
 ### 拖拽排序
 
@@ -93,7 +93,7 @@ Tab Enhance 是一个 Zotero 标签页增强插件。它提供可搜索、可分
 
 也可以通过组内成员右键菜单选择“移动到分组”“添加到分组”或“从分组移除”。“添加到分组”会保留原分组中的成员，“移动到分组”则会从原分组移除。
 
-![drag](assets\drag_tabs.gif)
+![drag](assets/drag_tabs.gif)
 
 ## 水平标签页右键增强
 
@@ -129,7 +129,7 @@ Tab Enhance 是一个 Zotero 标签页增强插件。它提供可搜索、可分
 
 没有可用文件附件的条目会被跳过。
 
-![group_from_repo](assets\group_from_repo.gif)
+![group_from_repo](assets/group_from_repo.gif)
 
 ## 个性化设置
 
