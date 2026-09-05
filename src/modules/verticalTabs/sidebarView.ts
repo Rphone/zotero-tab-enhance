@@ -66,6 +66,29 @@ export interface SidebarViewHandlers {
   closeTab: (tabId: string | null) => void;
 }
 
+export function scrollTabRowIntoView(
+  listContainer: HTMLElement,
+  tabKey: string,
+): boolean {
+  const rows = listContainer.querySelectorAll<HTMLElement>(
+    ".tab-enhance-vertical-tab-row[data-tab-key]",
+  );
+  let row: HTMLElement | null = null;
+  for (let index = 0; index < rows.length; index += 1) {
+    const candidate = rows.item(index);
+    if (candidate.dataset.tabKey === tabKey) {
+      row = candidate;
+      break;
+    }
+  }
+  if (!row) {
+    return false;
+  }
+
+  row.scrollIntoView({ block: "nearest", inline: "nearest" });
+  return true;
+}
+
 export default class SidebarViewRenderer {
   private readonly displayItemIDCache = new Map<string, number | null>();
   private readonly itemFieldCache = new Map<string, string>();

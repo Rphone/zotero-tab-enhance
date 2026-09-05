@@ -55,7 +55,7 @@ import {
   VirtualGroupMember,
 } from "./types";
 import SidebarMenuController from "./sidebarMenu";
-import SidebarViewRenderer from "./sidebarView";
+import SidebarViewRenderer, { scrollTabRowIntoView } from "./sidebarView";
 
 export default class VerticalTabSidebar {
   private readonly window: _ZoteroTypes.MainWindow;
@@ -103,6 +103,7 @@ export default class VerticalTabSidebar {
   private pendingRenderTimer: number | null = null;
   private lastRenderedSnapshotStructure: string | null = null;
   private lastSelectedTabKey: string | null = null;
+  private pendingSelectedTabScrollKey: string | null = null;
   private pendingReaderLoadRefreshTimer: number | null = null;
   private displayTitleMode = "title";
   private displaySubtitleMode = "source";
@@ -385,6 +386,7 @@ export default class VerticalTabSidebar {
         snapshot.selectedTabKey !== this.lastSelectedTabKey;
       this.lastSelectedTabKey = snapshot.selectedTabKey;
       if (selectionChanged) {
+        this.pendingSelectedTabScrollKey = snapshot.selectedTabKey;
         const selectedTab = normalizedTabs.find(
           (tab) => tab.key === snapshot.selectedTabKey,
         );
@@ -568,6 +570,7 @@ export default class VerticalTabSidebar {
     this.trackedTabsByMemberKey.clear();
     this.lastRenderedSnapshotStructure = null;
     this.lastSelectedTabKey = null;
+    this.pendingSelectedTabScrollKey = null;
     this.clearDisplayMetadataCache();
     this.groupStore.destroy();
     this.clearDragState();
@@ -769,6 +772,7 @@ export default class VerticalTabSidebar {
       normalizedTabs.filter((tab) => this.shouldRenderTab(tab)),
     );
     this.updateSelectedRows(snapshot.selectedTabKey);
+    this.scrollPendingSelectedTabIntoView();
     return true;
   }
 
@@ -986,6 +990,17 @@ export default class VerticalTabSidebar {
         closeTab: (tabId) => this.commandController.close(tabId),
       },
     );
+    this.scrollPendingSelectedTabIntoView();
+  }
+
+  private scrollPendingSelectedTabIntoView(): void {
+    if (!this.listContainer || !this.pendingSelectedTabScrollKey) {
+      return;
+    }
+
+    const tabKey = this.pendingSelectedTabScrollKey;
+    this.pendingSelectedTabScrollKey = null;
+    scrollTabRowIntoView(this.listContainer, tabKey);
   }
 
   private refreshTrackedTabMaps(openTabs: TrackedTab[]): void {

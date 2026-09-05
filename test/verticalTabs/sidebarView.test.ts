@@ -1,4 +1,6 @@
-import SidebarViewRenderer from "../../src/modules/verticalTabs/sidebarView";
+import SidebarViewRenderer, {
+  scrollTabRowIntoView,
+} from "../../src/modules/verticalTabs/sidebarView";
 
 function assert(condition: unknown, message: string) {
   if (!condition) {
@@ -89,6 +91,38 @@ describe("sidebarView", () => {
       JSON.stringify(sections[2].tabs.map((tab: any) => tab.key)) ===
         JSON.stringify(["t2"]),
       "expected older tab in recent-earlier section",
+    );
+  });
+
+  it("scrolls the matching tab row into the visible area", function () {
+    let scrollOptions: ScrollIntoViewOptions | null = null;
+    const rows = [
+      {
+        dataset: { tabKey: "tab:1" },
+        scrollIntoView: () => {
+          throw new Error("unexpected non-matching row scroll");
+        },
+      },
+      {
+        dataset: { tabKey: "tab:2" },
+        scrollIntoView: (options: ScrollIntoViewOptions) => {
+          scrollOptions = options;
+        },
+      },
+    ];
+    const listContainer = {
+      querySelectorAll: () => ({
+        length: rows.length,
+        item: (index: number) => rows[index],
+      }),
+    } as unknown as HTMLElement;
+
+    const scrolled = scrollTabRowIntoView(listContainer, "tab:2");
+
+    assert(scrolled, "expected the matching row to be scrolled");
+    assert(
+      scrollOptions?.block === "nearest" && scrollOptions.inline === "nearest",
+      "expected minimal vertical and horizontal scrolling",
     );
   });
 });
