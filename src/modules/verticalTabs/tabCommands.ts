@@ -257,6 +257,21 @@ export default class TabCommandController {
     return openedTabID;
   }
 
+  public async openNoteTab(noteID: number): Promise<void> {
+    // Zotero 10's note-tab API is not yet declared in zotero-types.
+    const notes = Zotero.Notes as typeof Zotero.Notes & {
+      open: (
+        itemID: number,
+        location: undefined,
+        options: { openInBackground: boolean; openInWindow: boolean },
+      ) => Promise<unknown>;
+    };
+    await notes.open(noteID, undefined, {
+      openInBackground: true,
+      openInWindow: false,
+    });
+  }
+
   public copyReference(tabId: string | null): void {
     try {
       const tab = this.getNativeTab(tabId);
@@ -613,6 +628,12 @@ export default class TabCommandController {
     member: Pick<VirtualGroupMember, "itemID" | "parentItemID">,
   ): Promise<void> {
     try {
+      const item =
+        member.itemID == null ? null : Zotero.Items.get(member.itemID);
+      if (item?.isNote?.()) {
+        await this.openNoteTab(item.id);
+        return;
+      }
       const attachmentID = await this.resolveAttachmentItemID(member);
       if (attachmentID == null) {
         return;

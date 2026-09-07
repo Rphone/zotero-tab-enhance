@@ -97,7 +97,7 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - `src/modules/verticalTabs/sidebarView.ts`: sidebar renderer. Owns aggregate/default view rendering, row/group DOM creation, search/display formatting, and display-metadata cache helpers.
 - `src/modules/verticalTabs/tabTracker.ts`: tab tracking service. Reads Zotero runtime tab state, normalizes tab snapshots, and notifies subscribers.
 - `src/modules/verticalTabs/groupStore.ts`: in-memory group state manager. Owns group creation, membership, ungrouped-tab filtering, reordering, collapse state (including focused-tab expansion), and synchronization with tracked tabs.
-- `src/modules/verticalTabs/tabCommands.ts`: command adapter for native tab operations such as select, close, move, reload, show in library, show in filesystem, and copy reference.
+- `src/modules/verticalTabs/tabCommands.ts`: command adapter for native tab operations such as select, close, move, reload, open attachment/note tabs, show in library, show in filesystem, and copy reference.
 - `src/modules/verticalTabs/collapsible.ts`: helper logic for collapsible group UI state and measured heights.
 - `src/modules/verticalTabs/types.ts`: shared types and constants for the vertical-tabs subsystem.
 - `src/utils/prefs.ts`: plugin preference access, bounded vertical-tab and group-header display metrics, defaults (including the eight group-color slots), JSON persistence helpers, and reset logic.
@@ -128,6 +128,8 @@ Before changing code, AGENT should first identify which layer is being touched: 
 - The vertical sidebar header `+` button groups all currently ungrouped open tabs into one new group; the tab context-menu "Create Group" action remains the single-tab group creation path. Keep these behaviors separate when changing group creation.
 - Dragging a vertical group member onto another visible member row inserts before/after that row; dragging it onto another group header appends it to that group. Dragging an ungrouped visible tab onto a group member/header adds it to that group, and dragging an open group member onto the ungrouped tab list removes it from its group and repositions the open tab there. Keep duplicate-member targets and closed-member-to-ungrouped targets as no-ops that clear the drag indicator.
 - The Zotero item context-menu group actions live in `itemMenuEnhance.ts` and delegate actual opening/grouping to `VerticalTabSidebar`; keep item-menu UI separate from tab context-menu UI.
+- Closed note group members (including `note-unloaded`) reopen through `Zotero.Notes.open` in a background tab, never through attachment resolution or `FileHandlers.open`. Both sidebar activation/group reopening and the member context-menu load action use the note command; single-member activation selects the reopened tab, while batch opening stays in the background.
+- The member context-menu load action checks `member.itemID` for a note before using parent-first attachment fallback. Regression tests must distinguish the child note from its regular parent item, cover parents with and without attachments, and assert the opened note ID.
 - When changing user-visible text, update locale files under `addon/locale/`.
 - Do not treat generated/package-facing assets in `addon/` as isolated from `src/`; verify whether the runtime change also requires matching packaged asset changes.
 

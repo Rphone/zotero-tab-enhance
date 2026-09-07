@@ -2414,7 +2414,7 @@ export default class VerticalTabSidebar {
       return false;
     }
 
-    const openPromise = this.openGroupMemberAttachment(
+    const openPromise = this.openGroupMember(
       member,
       groupId,
       memberKey,
@@ -2434,7 +2434,7 @@ export default class VerticalTabSidebar {
     }
   }
 
-  private async openGroupMemberAttachment(
+  private async openGroupMember(
     member: VirtualGroupMember,
     groupId: string,
     memberKey: string,
@@ -2455,7 +2455,9 @@ export default class VerticalTabSidebar {
       if (!openItem) {
         return false;
       }
-      if (openItem.isFileAttachment?.()) {
+      if (openItem.isNote?.()) {
+        await this.commandController.openNoteTab(openItem.id);
+      } else if (openItem.isFileAttachment?.()) {
         await this.commandController.openAttachmentTab(openItem.id, {
           openInBackground: true,
         });
@@ -2563,7 +2565,7 @@ export default class VerticalTabSidebar {
       return null;
     }
 
-    if (item.isFileAttachment?.()) {
+    if (item.isNote?.() || item.isFileAttachment?.()) {
       return item;
     }
 
