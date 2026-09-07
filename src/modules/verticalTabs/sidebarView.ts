@@ -197,12 +197,6 @@ export default class SidebarViewRenderer {
     }
 
     if (state.viewMode === "default") {
-      if (state.groupNameEditor?.kind === "create") {
-        elements.listContainer.appendChild(
-          this.renderCreateGroupEditor(state.groupNameEditor, handlers),
-        );
-      }
-
       renderableGroups.forEach((renderableGroup) => {
         if (
           renderableGroup.group.id === state.dragOverHeaderGroupId &&
@@ -222,6 +216,12 @@ export default class SidebarViewRenderer {
           elements.listContainer?.appendChild(this.renderDropPlaceholder());
         }
       });
+
+      if (state.groupNameEditor?.kind === "create") {
+        elements.listContainer.appendChild(
+          this.renderCreateGroupEditor(state.groupNameEditor, handlers),
+        );
+      }
 
       visibleUngroupedTabs.forEach((tab) => {
         if (tab.key === state.dragOverTabKey && state.dragOverPosition === "before") {

@@ -1,6 +1,10 @@
 import SidebarViewRenderer, {
+  SidebarRenderState,
+  SidebarViewHandlers,
   scrollTabRowIntoView,
 } from "../../src/modules/verticalTabs/sidebarView";
+import TabGroupStore from "../../src/modules/verticalTabs/groupStore";
+import { TrackedTab } from "../../src/modules/verticalTabs/types";
 
 function assert(condition: unknown, message: string) {
   if (!condition) {
@@ -9,6 +13,60 @@ function assert(condition: unknown, message: string) {
 }
 
 describe("sidebarView", () => {
+  it("places the new-group editor after groups and before ungrouped tabs", function () {
+    const groupNode = {} as HTMLElement;
+    const editorNode = {} as HTMLElement;
+    const tabNode = {} as HTMLElement;
+    const children: HTMLElement[] = [];
+    const tab = { key: "tab:1", type: "reader" } as TrackedTab;
+    const renderer = new SidebarViewRenderer(
+      {} as _ZoteroTypes.MainWindow,
+      {} as Document,
+      {
+        getUngroupedTabs: () => [tab],
+      } as unknown as TabGroupStore,
+    );
+    Object.assign(renderer, {
+      getRenderableGroups: () => [{ group: { id: "existing" }, members: [] }],
+      getViewTitle: () => "Tabs",
+      renderGroupSection: () => groupNode,
+      renderCreateGroupEditor: () => editorNode,
+      renderTabRow: () => tabNode,
+    });
+
+    renderer.render(
+      { tabs: [tab], selectedTabKey: null },
+      {
+        viewMode: "default",
+        searchQuery: "",
+        groupNameEditor: {
+          kind: "create",
+          sourceTabs: [tab],
+          value: "New group",
+        },
+      } as SidebarRenderState,
+      {
+        listContainer: {
+          appendChild: (child: HTMLElement) => children.push(child),
+        } as unknown as HTMLElement,
+        countBadge: {} as HTMLElement,
+        headerTitle: {} as HTMLElement,
+      },
+      {
+        hideContextMenu: () => {},
+        updateViewSwitcher: () => {},
+      } as SidebarViewHandlers,
+    );
+
+    assert(children.length === 3, "expected a group, editor, and ungrouped tab");
+    assert(children[0] === groupNode, "expected existing groups to stay first");
+    assert(
+      children[1] === editorNode,
+      "expected editor at the saved group position",
+    );
+    assert(children[2] === tabNode, "expected source tabs below the new header");
+  });
+
   it("normalizes tabs and filters library tabs", () => {
     const renderer = new SidebarViewRenderer(
       {} as _ZoteroTypes.MainWindow,
