@@ -1,5 +1,5 @@
 import { getString } from "../../utils/locale";
-import { getGroupColorPalette } from "../../utils/prefs";
+import { getGroupColorPalette, getPref } from "../../utils/prefs";
 import TabGroupStore from "./groupStore";
 import TabCommandController, { TabCommandItem } from "./tabCommands";
 import { ContextMenuTarget } from "./sidebarCommon";
@@ -184,6 +184,14 @@ export default class SidebarMenuController {
     this.appendMenuItem(contextMenu, getString("close-group-all"), () => {
       this.actions.closeGroupMembers(group.id);
     });
+    if (getPref("enableCopyReference")) {
+      this.appendMenuItem(
+        contextMenu,
+        getString("copy-group-references"),
+        () => this.commandController.copyGroupReferences(group.members),
+        group.members.length === 0,
+      );
+    }
     this.appendSeparator(contextMenu);
     this.appendMenuItem(
       contextMenu,
