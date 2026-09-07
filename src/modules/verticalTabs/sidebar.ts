@@ -2347,7 +2347,11 @@ export default class VerticalTabSidebar {
       const input = this.listContainer?.querySelector(
         ".tab-enhance-inline-group-name-input",
       ) as HTMLInputElement | null;
-      input?.focus();
+      input?.closest(".tab-enhance-vertical-group-header")?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+      input?.focus({ preventScroll: true });
       input?.select();
     }, 0);
   }
