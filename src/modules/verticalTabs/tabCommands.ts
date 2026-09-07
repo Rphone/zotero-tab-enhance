@@ -287,7 +287,7 @@ export default class TabCommandController {
       if (!item) {
         return;
       }
-      this.copyReferenceForItem(item);
+      this.copyReferencesForItems([item]);
     } catch (error) {
       ztoolkit.log("TabCommandController.copyReference failed", tabId, error);
     }
@@ -333,13 +333,24 @@ export default class TabCommandController {
       if (!item) {
         return;
       }
-      this.copyReferenceForItem(item);
+      this.copyReferencesForItems([item]);
     } catch (error) {
       ztoolkit.log(
         "TabCommandController.copyMemberReference failed",
         member,
         error,
       );
+    }
+  }
+
+  public copyGroupReferences(members: ItemContext[]): void {
+    try {
+      const items = members
+        .map((member) => this.resolvePrimaryItem(member))
+        .filter((item): item is Zotero.Item => Boolean(item));
+      this.copyReferencesForItems(items);
+    } catch (error) {
+      ztoolkit.log("TabCommandController.copyGroupReferences failed", error);
     }
   }
 
@@ -489,7 +500,7 @@ export default class TabCommandController {
     });
   }
 
-  private resolvePrimaryItem(context: ItemContext): any | null {
+  private resolvePrimaryItem(context: ItemContext): Zotero.Item | null {
     const candidateIDs = [context.parentItemID, context.itemID].filter(
       (itemID, index, array): itemID is number =>
         typeof itemID === "number" && array.indexOf(itemID) === index,
@@ -583,9 +594,14 @@ export default class TabCommandController {
     return null;
   }
 
-  private copyReferenceForItem(item: any): void {
-    const topLevelItem = item.topLevelItem ?? item;
-    let items = [topLevelItem];
+  private copyReferencesForItems(items: Zotero.Item[]): void {
+    const topLevelItems = items.map((item) => item.topLevelItem ?? item);
+    items = Array.from(
+      new Map(topLevelItems.map((item) => [item.id, item])).values(),
+    );
+    if (!items.length) {
+      return;
+    }
 
     let format = Zotero.QuickCopy.getFormatFromURL(
       Zotero.QuickCopy.lastActiveURL,

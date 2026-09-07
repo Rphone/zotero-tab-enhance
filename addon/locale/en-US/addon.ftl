@@ -31,6 +31,7 @@ collapse-group = Collapse Group
 open-group-all = Open All in Group
 open-group-only = Close Others and Open This Group
 close-group-all = Close All Tabs in Group
+copy-group-references = Copy Group Tab References to Clipboard
 change-group-color = Change Group Color
 group-color = Color
 group-name-prompt = Enter group name

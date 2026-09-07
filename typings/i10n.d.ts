@@ -8,6 +8,7 @@ export type FluentMessageId =
   | 'close-group-all'
   | 'close-tab'
   | 'collapse-group'
+  | 'copy-group-references'
   | 'copy-to-clipboard'
   | 'create-group'
   | 'create-group-from-selection'

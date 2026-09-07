@@ -31,6 +31,7 @@ collapse-group = 折叠分组
 open-group-all = 打开组内全部
 open-group-only = 关闭其他并打开本组
 close-group-all = 关闭组内所有标签
+copy-group-references = 复制组内标签引用到剪贴板
 change-group-color = 更改分组颜色
 group-color = 颜色
 group-name-prompt = 输入分组名称
