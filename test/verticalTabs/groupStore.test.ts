@@ -141,6 +141,60 @@ describe("TabGroupStore", () => {
     );
   });
 
+  for (const type of ["note", "note-unloaded"]) {
+    it(`keeps a child ${type} separate from its parent's grouped PDF`, function () {
+      const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+      const pdf = makeTab({ itemID: 10, parentItemID: 100 });
+      const note = makeTab({
+        key: "tab:note",
+        tabId: "note",
+        type,
+        itemID: 11,
+        parentItemID: 100,
+      });
+      store.createGroupFromTab(pdf);
+      store.syncTrackedTabs([note, pdf]);
+
+      assert(
+        store.getUngroupedTabs([pdf, note])[0]?.itemID === 11,
+        "expected the child note to remain visible as an ungrouped tab",
+      );
+      assert(
+        store.getGroups()[0].members[0].itemID === 10,
+        "expected the PDF member to retain its identity",
+      );
+    });
+  }
+
+  it("does not substitute a sibling note or PDF for a closed child note", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.createGroupFromTab(
+      makeTab({ type: "note", itemID: 11, parentItemID: 100 }),
+    );
+    const sibling = makeTab({
+      key: "tab:sibling",
+      tabId: "sibling",
+      type: "note",
+      itemID: 12,
+      parentItemID: 100,
+    });
+    const pdf = makeTab({ itemID: 10, parentItemID: 100 });
+    store.syncTrackedTabs([sibling, pdf]);
+
+    const member = store.getGroups()[0].members[0];
+    assert(member.itemID === 11 && !member.isOpen, "expected the original note to stay closed");
+    assert(store.getUngroupedTabs([sibling, pdf]).length === 2, "expected both other tabs to remain visible");
+
+    const reopened = makeTab({
+      type: "note-unloaded",
+      itemID: 11,
+      parentItemID: 100,
+    });
+    store.syncTrackedTabs([reopened, sibling, pdf]);
+    assert(store.getGroups()[0].members[0].isOpen, "expected the same note to reconnect after reopening");
+    assert(store.getUngroupedTabs([reopened, sibling, pdf]).length === 2, "expected only the reopened member to be grouped");
+  });
+
   it("creates one group containing all requested tabs", () => {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     const firstTab = makeTab({

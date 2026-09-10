@@ -1058,6 +1058,16 @@ export default class SidebarViewRenderer {
       }
       case "source":
       default: {
+        if (
+          (input.type === "note" || input.type === "note-unloaded") &&
+          input.parentItemID != null &&
+          input.parentItemID !== input.itemID
+        ) {
+          return (
+            this.getItemField(Zotero.Items.get(input.parentItemID), ["title"]) ||
+            this.getLegacyMetaText(input)
+          );
+        }
         const item = this.getDisplayItem(input);
         return (
           this.getSourceText(item) ||

@@ -2294,7 +2294,21 @@ export default class VerticalTabSidebar {
       return;
     }
 
-    this.beginCreateGroupEditorForTabs(ungroupedTabs, getString("new-group"));
+    const group = this.groupStore.createGroupFromTabs(
+      ungroupedTabs,
+      getString("new-group"),
+    );
+    if (!group) {
+      return;
+    }
+    if (this.searchQuery) {
+      this.searchQuery = "";
+      if (this.searchInput) {
+        this.searchInput.value = "";
+      }
+      this.persistSidebarState();
+    }
+    this.beginRenameGroupEditor(group);
   }
 
   private beginCreateGroupEditor(sourceTab: TrackedTab): void {

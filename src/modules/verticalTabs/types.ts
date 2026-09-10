@@ -94,7 +94,11 @@ export function makeVirtualMemberLookupKeys(input: {
 }): string[] {
   const keys = new Set<string>([makeVirtualMemberKey(input)]);
 
-  if (typeof input.parentItemID === "number") {
+  if (
+    typeof input.parentItemID === "number" &&
+    input.type !== "note" &&
+    input.type !== "note-unloaded"
+  ) {
     keys.add(`parent:${input.parentItemID}:${input.type ?? "tab"}`);
     keys.add(`item:${input.parentItemID}`);
   }
