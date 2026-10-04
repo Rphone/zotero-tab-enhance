@@ -1064,7 +1064,7 @@ export default class SidebarViewRenderer {
           input.parentItemID !== input.itemID
         ) {
           return (
-            this.getItemField(Zotero.Items.get(input.parentItemID), ["title"]) ||
+            this.getItemField(this.getItem(input.parentItemID), ["title"]) ||
             this.getLegacyMetaText(input)
           );
         }
@@ -1117,19 +1117,31 @@ export default class SidebarViewRenderer {
     const cacheKey = ids.length ? ids.join("|") : "none";
     if (this.displayItemIDCache.has(cacheKey)) {
       const cachedItemID = this.displayItemIDCache.get(cacheKey);
-      return typeof cachedItemID === "number"
-        ? (Zotero.Items.get(cachedItemID) ?? null)
-        : null;
+      const cachedItem =
+        typeof cachedItemID === "number" ? this.getItem(cachedItemID) : null;
+      if (cachedItem) {
+        return cachedItem;
+      }
+      this.displayItemIDCache.delete(cacheKey);
     }
     for (const id of ids) {
-      const item = Zotero.Items.get(id);
+      const item = this.getItem(id);
       if (item) {
-        this.displayItemIDCache.set(cacheKey, id);
+        if (id === ids[0]) {
+          this.displayItemIDCache.set(cacheKey, id);
+        }
         return item;
       }
     }
-    this.displayItemIDCache.set(cacheKey, null);
     return null;
+  }
+
+  private getItem(id: number): Zotero.Item | null {
+    try {
+      return Zotero.Items.get(id) || null;
+    } catch {
+      return null;
+    }
   }
 
   private getItemField(item: any | null, fields: string[]): string {
@@ -1154,7 +1166,6 @@ export default class SidebarViewRenderer {
           return normalizedValue;
         }
       } catch {
-        this.itemFieldCache.set(cacheKey, "");
         continue;
       }
       this.itemFieldCache.set(cacheKey, "");

@@ -28,9 +28,11 @@ function registerTabNotifier() {
   );
 }
 
-function syncWindowFeatures(win: _ZoteroTypes.MainWindow): void {
+async function syncWindowFeatures(win: _ZoteroTypes.MainWindow): Promise<void> {
   const enableVerticalTabs = getPref("enableVerticalTabs");
   const enableHorizontalTabEnhance = getPref("enableHorizontalTabEnhance");
+  let sidebar: VerticalTabSidebar | undefined;
+  let sidebarInitialization: Promise<boolean> | undefined;
 
   if (enableVerticalTabs) {
     if (!addon.tabTrackerInstances.has(win)) {
@@ -46,22 +48,11 @@ function syncWindowFeatures(win: _ZoteroTypes.MainWindow): void {
       const tabTracker = addon.tabTrackerInstances.get(win);
       if (tabTracker) {
         const verticalTabSidebar = new VerticalTabSidebar(win, tabTracker);
-        verticalTabSidebar.init();
         addon.verticalTabSidebarInstances.set(win, verticalTabSidebar);
-        ztoolkit.log("VerticalTabSidebar instance created for window");
       }
     }
-
-    if (!addon.itemMenuEnhanceInstances.has(win)) {
-      const itemMenuEnhance = new ItemMenuEnhance(
-        win,
-        () => addon.verticalTabSidebarInstances.get(win) ?? null,
-      );
-      if (itemMenuEnhance.init()) {
-        addon.itemMenuEnhanceInstances.set(win, itemMenuEnhance);
-        ztoolkit.log("ItemMenuEnhance instance created for window");
-      }
-    }
+    sidebar = addon.verticalTabSidebarInstances.get(win);
+    sidebarInitialization = sidebar?.init();
   } else {
     const itemMenuEnhance = addon.itemMenuEnhanceInstances.get(win);
     if (itemMenuEnhance) {
@@ -100,10 +91,31 @@ function syncWindowFeatures(win: _ZoteroTypes.MainWindow): void {
       ztoolkit.log("TabEnhance instance destroyed for window");
     }
   }
+
+  if (sidebar && sidebarInitialization) {
+    const ready = await sidebarInitialization;
+    if (addon.verticalTabSidebarInstances.get(win) !== sidebar) {
+      return;
+    }
+    if (!ready) {
+      addon.verticalTabSidebarInstances.delete(win);
+      return;
+    }
+    if (!addon.itemMenuEnhanceInstances.has(win)) {
+      const itemMenuEnhance = new ItemMenuEnhance(
+        win,
+        () => addon.verticalTabSidebarInstances.get(win) ?? null,
+      );
+      if (itemMenuEnhance.init()) {
+        addon.itemMenuEnhanceInstances.set(win, itemMenuEnhance);
+        ztoolkit.log("ItemMenuEnhance instance created for window");
+      }
+    }
+  }
 }
 
-function syncAllWindowsFeatures(): void {
-  Zotero.getMainWindows().forEach((win) => syncWindowFeatures(win));
+async function syncAllWindowsFeatures(): Promise<void> {
+  await Promise.all(Zotero.getMainWindows().map((win) => syncWindowFeatures(win)));
 }
 
 function refreshAllVerticalSidebars(): void {
@@ -127,16 +139,21 @@ async function onStartup() {
     Zotero.unlockPromise,
     Zotero.uiReadyPromise,
   ]);
+  if (!addon.data.alive) {
+    return;
+  }
 
   initLocale();
   initPreference();
+  registerTabNotifier();
 
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
   );
 
-  registerTabNotifier();
-  addon.data.initialized = true;
+  if (addon.data.alive) {
+    addon.data.initialized = true;
+  }
 }
 
 async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
@@ -146,7 +163,7 @@ async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
 
-  syncWindowFeatures(win);
+  await syncWindowFeatures(win);
 }
 
 async function onMainWindowUnload(win: Window): Promise<void> {
@@ -375,7 +392,7 @@ async function onPrefsEvent(type: string, data: { [key: string]: any }) {
       await registerPrefsScripts(data.window);
       break;
     case "featureToggle":
-      syncAllWindowsFeatures();
+      await syncAllWindowsFeatures();
       break;
     case "displayPrefsChanged":
       refreshAllVerticalSidebars();
@@ -384,7 +401,7 @@ async function onPrefsEvent(type: string, data: { [key: string]: any }) {
       addon.data.resettingPluginData = true;
       try {
         resetPluginPrefsToDefaults();
-        syncAllWindowsFeatures();
+        await syncAllWindowsFeatures();
         refreshAllVerticalSidebars();
         if (data.window) {
           syncPrefControls(data.window);

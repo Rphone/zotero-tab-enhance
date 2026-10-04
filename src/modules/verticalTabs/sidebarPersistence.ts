@@ -1,5 +1,10 @@
 import { getString } from "../../utils/locale";
-import { getGroupColorPalette, getJSONPref, setJSONPref } from "../../utils/prefs";
+import {
+  getGroupColorPalette,
+  getJSONPref,
+  getRawPref,
+  setJSONPref,
+} from "../../utils/prefs";
 import TabGroupStore from "./groupStore";
 import {
   RestoredSidebarState,
@@ -8,16 +13,16 @@ import {
   SidebarStateSnapshot,
   SidebarViewMode,
 } from "./sidebarCommon";
-import { SidebarState, VirtualGroup } from "./types";
+import { SidebarState, TrackedTab, VirtualGroup } from "./types";
 
-export function restoreSidebarState(options: {
-  searchInput?: HTMLInputElement;
-  groupStore: TabGroupStore;
-}): RestoredSidebarState {
-  const sidebarState = getJSONPref<Partial<SidebarState>>(
-    SIDEBAR_PREF_KEYS.SIDEBAR_STATE,
-    {},
-  );
+export async function restoreSidebarState(
+  tabs: Pick<TrackedTab, "itemID" | "parentItemID">[] = [],
+): Promise<RestoredSidebarState> {
+  const sidebarState =
+    getJSONPref<Partial<SidebarState> | null>(
+      SIDEBAR_PREF_KEYS.SIDEBAR_STATE,
+      {},
+    ) ?? {};
 
   let collapsed = false;
   if (typeof sidebarState.collapsed === "boolean") {
@@ -36,9 +41,6 @@ export function restoreSidebarState(options: {
   let searchQuery = "";
   if (typeof sidebarState.searchQuery === "string") {
     searchQuery = sidebarState.searchQuery;
-    if (options.searchInput) {
-      options.searchInput.value = sidebarState.searchQuery;
-    }
   }
 
   let viewMode: SidebarViewMode = "default";
@@ -46,11 +48,51 @@ export function restoreSidebarState(options: {
     viewMode = sidebarState.viewMode;
   }
 
-  const groups = sanitizeGroups(
-    getJSONPref<VirtualGroup[]>(SIDEBAR_PREF_KEYS.GROUPS_STATE, []),
+  const rawGroups = getRawPref<string | null>(
+    SIDEBAR_PREF_KEYS.GROUPS_STATE,
+    null,
   );
-  if (groups.length > 0) {
-    options.groupStore.setGroups(groups);
+  const savedGroups: unknown = rawGroups == null ? [] : JSON.parse(rawGroups);
+  if (!Array.isArray(savedGroups)) {
+    throw new Error("Invalid saved vertical tab groups");
+  }
+  const groups = sanitizeGroups(savedGroups);
+  const itemIDs = new Set<number>();
+  for (const member of [...groups.flatMap((group) => group.members), ...tabs]) {
+    for (const id of [member.itemID, member.parentItemID]) {
+      if (typeof id === "number" && Zotero.Items.exists(id)) {
+        itemIDs.add(id);
+      }
+    }
+  }
+  if (itemIDs.size) {
+    const items = await Zotero.Items.getAsync([...itemIDs]);
+    const parentIDs = new Set<number>();
+    for (const item of items) {
+      const parentID = item.parentItemID;
+      if (
+        typeof parentID === "number" &&
+        !itemIDs.has(parentID) &&
+        Zotero.Items.exists(parentID)
+      ) {
+        parentIDs.add(parentID);
+      }
+    }
+    if (parentIDs.size) {
+      items.push(...(await Zotero.Items.getAsync([...parentIDs])));
+    }
+    await Zotero.Items.loadDataTypes(items, ["itemData", "creators"]);
+    const itemsByID = new Map(items.map((item) => [item.id, item]));
+    for (const group of groups) {
+      for (const member of group.members) {
+        if (member.itemID != null && member.parentItemID == null) {
+          const parentID = itemsByID.get(member.itemID)?.parentItemID;
+          if (typeof parentID === "number") {
+            member.parentItemID = parentID;
+          }
+        }
+      }
+    }
   }
 
   return {
@@ -58,7 +100,7 @@ export function restoreSidebarState(options: {
     expandedWidth,
     searchQuery,
     viewMode,
-    groups,
+    groups: sanitizeGroups(groups),
   };
 }
 
@@ -107,17 +149,15 @@ export function sanitizeGroups(groups: VirtualGroup[]): VirtualGroup[] {
       const parentItemID =
         typeof member.parentItemID === "number" ? member.parentItemID : null;
       const hasResolvableItem =
-        (itemID != null && Boolean(Zotero.Items.get(itemID))) ||
-        (parentItemID != null && Boolean(Zotero.Items.get(parentItemID)));
+        (itemID != null && Zotero.Items.exists(itemID)) ||
+        (parentItemID != null && Zotero.Items.exists(parentItemID));
 
       if ((itemID != null || parentItemID != null) && !hasResolvableItem) {
         return [];
       }
 
       const memberKey =
-        typeof member.key === "string" && member.key.trim()
-          ? member.key
-          : null;
+        typeof member.key === "string" && member.key.trim() ? member.key : null;
       if (!memberKey) {
         return [];
       }
@@ -130,7 +170,8 @@ export function sanitizeGroups(groups: VirtualGroup[]): VirtualGroup[] {
               : `restored-member-${groupIndex}-${memberIndex}`,
           key: memberKey,
           sourceTabKey:
-            typeof member.sourceTabKey === "string" && member.sourceTabKey.trim()
+            typeof member.sourceTabKey === "string" &&
+            member.sourceTabKey.trim()
               ? member.sourceTabKey
               : null,
           tabId:
@@ -149,7 +190,8 @@ export function sanitizeGroups(groups: VirtualGroup[]): VirtualGroup[] {
           parentItemID,
           isOpen: Boolean(member.isOpen),
           openedAt:
-            typeof member.openedAt === "number" && Number.isFinite(member.openedAt)
+            typeof member.openedAt === "number" &&
+            Number.isFinite(member.openedAt)
               ? member.openedAt
               : null,
           iconKey:
@@ -174,7 +216,9 @@ export function sanitizeGroups(groups: VirtualGroup[]): VirtualGroup[] {
         color:
           typeof group.color === "string" && group.color.trim()
             ? group.color
-            : getGroupColorPalette()[groupIndex % getGroupColorPalette().length],
+            : getGroupColorPalette()[
+                groupIndex % getGroupColorPalette().length
+              ],
         collapsed: Boolean(group.collapsed),
         sortMode:
           group.sortMode === "recent" ||

@@ -341,7 +341,6 @@ export default class TabTrackerService {
       return parentItemID;
     } catch (error) {
       ztoolkit.log("TabTrackerService failed to resolve parent item", error);
-      this.parentItemIDByItemID.set(itemID, null);
       return null;
     }
   }

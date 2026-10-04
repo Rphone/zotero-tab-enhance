@@ -18,6 +18,7 @@ import {
   DropPosition,
   InlineGroupNameEditor,
   RenderableGroup,
+  RestoredSidebarState,
   SIDEBAR,
   SidebarElements,
   SidebarViewMode,
@@ -66,6 +67,8 @@ export default class VerticalTabSidebar {
   private readonly menuController: SidebarMenuController;
   private readonly viewRenderer: SidebarViewRenderer;
   private initialized = false;
+  private destroyed = false;
+  private initializationPromise: Promise<boolean> | null = null;
   private collapsed = false;
   private expandedWidth: number = SIDEBAR.DEFAULT_EXPANDED_WIDTH;
   private searchQuery = "";
@@ -358,55 +361,80 @@ export default class VerticalTabSidebar {
     );
   }
 
-  public init(): void {
+  public init(): Promise<boolean> {
+    if (this.destroyed) {
+      return Promise.resolve(false);
+    }
     if (this.initialized) {
-      ztoolkit.log("VerticalTabSidebar already initialized, skipping");
-      return;
+      return Promise.resolve(true);
     }
-
-    if (!this.mountLayout()) {
-      ztoolkit.log("VerticalTabSidebar failed to mount");
-      return;
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initialize().finally(() => {
+        this.initializationPromise = null;
+      });
     }
+    return this.initializationPromise;
+  }
 
-    this.restorePersistedState();
-    this.refreshDisplayModeCache();
-    this.applyDisplayStylePrefs();
-    this.initialized = true;
-    this.unsubscribeGroupStore = this.groupStore.subscribe(() => {
-      if (this.initialized) {
-        this.persistGroupsState();
-        this.requestRender(this.tracker.getSnapshot());
+  private async initialize(): Promise<boolean> {
+    try {
+      const restoredState = await restoreSidebarState(this.tracker.getTabs());
+      if (this.destroyed) {
+        return false;
       }
-    });
-    this.lastSelectedTabKey = this.tracker.getSnapshot().selectedTabKey;
-    this.unsubscribeTracker = this.tracker.subscribe((snapshot) => {
-      const normalizedTabs = snapshot.tabs.map((tab) => this.normalizeTab(tab));
-      const selectionChanged =
-        snapshot.selectedTabKey !== this.lastSelectedTabKey;
-      this.lastSelectedTabKey = snapshot.selectedTabKey;
-      if (selectionChanged) {
-        this.pendingSelectedTabScrollKey = snapshot.selectedTabKey;
-        const selectedTab = normalizedTabs.find(
-          (tab) => tab.key === snapshot.selectedTabKey,
-        );
-        if (selectedTab) {
-          this.groupStore.expandGroupsContainingTab(selectedTab);
+      if (!this.mountLayout()) {
+        ztoolkit.log("VerticalTabSidebar failed to mount");
+        this.destroy();
+        return false;
+      }
+
+      this.applyRestoredState(restoredState);
+      this.tracker.reconcile("sidebar-restored");
+      this.clearDisplayMetadataCache();
+      this.refreshDisplayModeCache();
+      this.applyDisplayStylePrefs();
+      this.initialized = true;
+      this.unsubscribeGroupStore = this.groupStore.subscribe(() => {
+        if (this.initialized) {
+          this.persistGroupsState();
+          this.requestRender(this.tracker.getSnapshot());
         }
-      }
-      if (this.applySelectionOnlyUpdate(snapshot, normalizedTabs)) {
-        return;
-      }
+      });
+      this.lastSelectedTabKey = this.tracker.getSnapshot().selectedTabKey;
+      this.unsubscribeTracker = this.tracker.subscribe((snapshot) => {
+        const normalizedTabs = snapshot.tabs.map((tab) => this.normalizeTab(tab));
+        const selectionChanged =
+          snapshot.selectedTabKey !== this.lastSelectedTabKey;
+        this.lastSelectedTabKey = snapshot.selectedTabKey;
+        if (selectionChanged) {
+          this.pendingSelectedTabScrollKey = snapshot.selectedTabKey;
+          const selectedTab = normalizedTabs.find(
+            (tab) => tab.key === snapshot.selectedTabKey,
+          );
+          if (selectedTab) {
+            this.groupStore.expandGroupsContainingTab(selectedTab);
+          }
+        }
+        if (this.applySelectionOnlyUpdate(snapshot, normalizedTabs)) {
+          return;
+        }
 
-      const groupSyncChanged = this.groupStore.syncTrackedTabs(normalizedTabs);
-      if (!groupSyncChanged) {
-        this.requestRender(snapshot);
-      }
-    });
-    this.window.addEventListener("mouseup", this.handleResizeEnd);
-    this.window.addEventListener("dragend", this.handleWindowDragEnd, true);
-    this.window.addEventListener("keydown", this.handleGlobalKeyDown, true);
-    ztoolkit.log("VerticalTabSidebar initialized");
+        const groupSyncChanged = this.groupStore.syncTrackedTabs(normalizedTabs);
+        if (!groupSyncChanged) {
+          this.requestRender(snapshot);
+        }
+      });
+      this.window.addEventListener("mouseup", this.handleResizeEnd);
+      this.window.addEventListener("dragend", this.handleWindowDragEnd, true);
+      this.window.addEventListener("keydown", this.handleGlobalKeyDown, true);
+      ztoolkit.log("VerticalTabSidebar initialized");
+      return true;
+    } catch (error) {
+      ztoolkit.log("VerticalTabSidebar initialization failed", error);
+      this.initialized = false;
+      this.destroy();
+      return false;
+    }
   }
 
   public refreshDisplayPrefs(): void {
@@ -447,11 +475,11 @@ export default class VerticalTabSidebar {
   }
 
   public getGroupsForContextMenu(): VirtualGroup[] {
-    return this.groupStore.getGroups();
+    return this.initialized ? this.groupStore.getGroups() : [];
   }
 
   public addOpenTabToGroup(tabId: string | null, groupId: string): boolean {
-    if (!tabId || !groupId) {
+    if (!this.initialized || !tabId || !groupId) {
       return false;
     }
 
@@ -469,6 +497,9 @@ export default class VerticalTabSidebar {
   }
 
   public createGroupFromOpenTab(tabId: string | null, name?: string): boolean {
+    if (!this.initialized) {
+      return false;
+    }
     const trackedTab = this.findTrackedTabByTabId(tabId);
     if (!trackedTab) {
       if (tabId) {
@@ -485,12 +516,16 @@ export default class VerticalTabSidebar {
     items: any[],
     groupId: string,
   ): Promise<boolean> {
-    if (!groupId || !this.groupStore.findGroupById(groupId)) {
+    if (
+      !this.initialized ||
+      !groupId ||
+      !this.groupStore.findGroupById(groupId)
+    ) {
       return false;
     }
 
     const trackedTabs = await this.openItemsAsTrackedTabs(items);
-    if (!trackedTabs.length) {
+    if (!this.initialized || !trackedTabs.length) {
       return false;
     }
 
@@ -508,8 +543,11 @@ export default class VerticalTabSidebar {
     items: any[],
     name = getString("new-group"),
   ): Promise<boolean> {
+    if (!this.initialized) {
+      return false;
+    }
     const trackedTabs = await this.openItemsAsTrackedTabs(items);
-    if (!trackedTabs.length) {
+    if (!this.initialized || !trackedTabs.length) {
       return false;
     }
 
@@ -523,11 +561,12 @@ export default class VerticalTabSidebar {
   }
 
   public destroy(): void {
-    if (!this.initialized) {
+    if (this.destroyed) {
       return;
     }
+    this.destroyed = true;
 
-    if (!addon.data.resettingPluginData) {
+    if (this.initialized && !addon.data.resettingPluginData) {
       this.persistSidebarState();
       this.persistGroupsState();
     }
@@ -688,15 +727,15 @@ export default class VerticalTabSidebar {
     }
   }
 
-  private restorePersistedState(): void {
-    const restoredState = restoreSidebarState({
-      searchInput: this.searchInput,
-      groupStore: this.groupStore,
-    });
+  private applyRestoredState(restoredState: RestoredSidebarState): void {
     this.collapsed = restoredState.collapsed;
     this.expandedWidth = restoredState.expandedWidth;
     this.searchQuery = restoredState.searchQuery;
     this.viewMode = restoredState.viewMode;
+    this.groupStore.setGroups(restoredState.groups);
+    if (this.searchInput) {
+      this.searchInput.value = this.searchQuery;
+    }
     this.applySidebarWidth();
     this.updateViewSwitcher();
   }

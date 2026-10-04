@@ -118,4 +118,87 @@ describe("sidebar child note subtitles", function () {
       "expected metadata rather than a wrong source",
     );
   });
+
+  for (const type of ["reader", "note-unloaded"]) {
+    it(`recovers ${type} metadata after an unloaded item lookup`, function () {
+      const get = Zotero.Items.get;
+      let loaded = false;
+      Object.assign(Zotero.Items, {
+        get: (id: number) => {
+          if (!loaded) throw new Error(`Item ${id} not yet loaded`);
+          return get(id);
+        },
+      });
+      const input = { type, itemID: 101, parentItemID: 100, isOpen: false };
+      assert(
+        renderer.getDisplaySubtitle(input, false).includes("item 100"),
+        "expected a metadata fallback without interrupting rendering",
+      );
+      loaded = true;
+      assert(
+        renderer.getDisplaySubtitle(input, false) ===
+          (type === "reader" ? "Journal name" : "Parent article title"),
+        "expected the real metadata once loading completes",
+      );
+    });
+  }
+
+  it("does not cache a child fallback ahead of an unloaded parent", function () {
+    const get = Zotero.Items.get;
+    let parentLoaded = false;
+    Object.assign(Zotero.Items, {
+      get: (id: number) => {
+        if (id === 100 && !parentLoaded) {
+          throw new Error("Parent not yet loaded");
+        }
+        return id === 102
+          ? {
+              id,
+              getField: (field: string) =>
+                field === "publicationTitle" ? "Child source" : "",
+            }
+          : get(id);
+      },
+    });
+    const input = {
+      type: "reader",
+      itemID: 102,
+      parentItemID: 100,
+      isOpen: true,
+    };
+    assert(
+      renderer.getDisplaySubtitle(input, false) === "Child source",
+      "expected a temporary child fallback",
+    );
+    parentLoaded = true;
+    assert(
+      renderer.getDisplaySubtitle(input, false) === "Journal name",
+      "expected the parent to take priority after loading",
+    );
+  });
+
+  it("retries display fields that were temporarily unloaded", function () {
+    let loaded = false;
+    Object.assign(Zotero.Items, {
+      get: () => ({
+        id: 100,
+        getField: (field: string) => {
+          if (!loaded) throw new Error("Fields not yet loaded");
+          return field === "publicationTitle" ? "Loaded source" : "";
+        },
+      }),
+    });
+    const input = {
+      type: "reader",
+      itemID: 102,
+      parentItemID: 100,
+      isOpen: true,
+    };
+    renderer.getDisplaySubtitle(input, false);
+    loaded = true;
+    assert(
+      renderer.getDisplaySubtitle(input, false) === "Loaded source",
+      "expected failed field reads not to be cached as empty",
+    );
+  });
 });
