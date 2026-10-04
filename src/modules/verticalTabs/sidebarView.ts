@@ -64,6 +64,7 @@ export interface SidebarViewHandlers {
   commitInlineGroupNameEditor: () => void;
   cancelInlineGroupNameEditor: () => void;
   closeTab: (tabId: string | null) => void;
+  removeGroupMember: (groupId: string, memberKey: string) => void;
 }
 
 export function scrollTabRowIntoView(
@@ -937,6 +938,12 @@ export default class SidebarViewRenderer {
           this.getDisplaySubtitle(member, state.metadataDeferred),
         ),
       );
+      row.appendChild(
+        this.renderCloseButton(
+          () => handlers.removeGroupMember(groupId, member.key),
+          getString("remove-from-group"),
+        ),
+      );
     }
 
     return row;
@@ -981,16 +988,23 @@ export default class SidebarViewRenderer {
     return content;
   }
 
-  private renderCloseButton(handler: () => void): HTMLButtonElement {
+  private renderCloseButton(
+    handler: () => void,
+    title = getString("close-tab"),
+  ): HTMLButtonElement {
     return ztoolkit.UI.createElement(this.document, "button", {
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-close"],
       properties: {
         textContent: "x",
-        title: getString("close-tab"),
+        title,
         draggable: false,
       },
       listeners: [
+        {
+          type: "keydown",
+          listener: (event: Event) => event.stopPropagation(),
+        },
         {
           type: "click",
           listener: (event: Event) => {

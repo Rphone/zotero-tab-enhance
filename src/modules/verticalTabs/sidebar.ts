@@ -1027,6 +1027,8 @@ export default class VerticalTabSidebar {
         commitInlineGroupNameEditor: () => this.commitInlineGroupNameEditor(),
         cancelInlineGroupNameEditor: () => this.cancelInlineGroupNameEditor(),
         closeTab: (tabId) => this.commandController.close(tabId),
+        removeGroupMember: (groupId, memberKey) =>
+          this.groupStore.removeMember(groupId, memberKey),
       },
     );
     this.scrollPendingSelectedTabIntoView();
