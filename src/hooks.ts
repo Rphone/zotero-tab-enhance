@@ -9,7 +9,6 @@ import VerticalTabSidebar from "./modules/verticalTabs/sidebar";
 import TabTrackerService from "./modules/verticalTabs/tabTracker";
 import { initLocale } from "./utils/locale";
 import { getPref, resetPluginPrefsToDefaults } from "./utils/prefs";
-import { createZToolkit } from "./utils/ztoolkit";
 import { syncPrefControls } from "./modules/preferenceScript";
 
 function registerTabNotifier() {
@@ -157,8 +156,6 @@ async function onStartup() {
 }
 
 async function onMainWindowLoad(win: _ZoteroTypes.MainWindow): Promise<void> {
-  addon.data.ztoolkit = createZToolkit();
-
   win.MozXULElement.insertFTLIfNeeded(
     `${addon.data.config.addonRef}-mainWindow.ftl`,
   );
@@ -195,7 +192,6 @@ async function onMainWindowUnload(win: Window): Promise<void> {
     ztoolkit.log("TabEnhance instance destroyed for window");
   }
 
-  ztoolkit.unregisterAll();
   addon.data.dialog?.window?.close();
 }
 

@@ -116,13 +116,37 @@ export default class TabTrackerService {
         this.toTrackedTab(tab, nativeIndex, selectedID),
       );
 
-    this.snapshot = {
+    const nextSnapshot = {
       tabs: trackedTabs,
       selectedTabKey:
         trackedTabs.find((tab) => tab.isSelected)?.key ??
         (selectedID ? this.makeTabKey(selectedID) : null),
     };
 
+    if (
+      nextSnapshot.selectedTabKey === this.snapshot.selectedTabKey &&
+      trackedTabs.length === this.snapshot.tabs.length &&
+      trackedTabs.every((tab, index) => {
+        const previous = this.snapshot.tabs[index];
+        return (
+          tab.key === previous.key &&
+          tab.tabId === previous.tabId &&
+          tab.type === previous.type &&
+          tab.title === previous.title &&
+          tab.itemID === previous.itemID &&
+          tab.parentItemID === previous.parentItemID &&
+          tab.isOpen === previous.isOpen &&
+          tab.isSelected === previous.isSelected &&
+          tab.nativeIndex === previous.nativeIndex &&
+          tab.openedAt === previous.openedAt &&
+          tab.iconKey === previous.iconKey
+        );
+      })
+    ) {
+      return this.getSnapshot();
+    }
+
+    this.snapshot = nextSnapshot;
     this.emit();
 
     return this.getSnapshot();

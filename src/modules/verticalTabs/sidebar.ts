@@ -84,6 +84,8 @@ export default class VerticalTabSidebar {
   private searchInput?: HTMLInputElement;
   private contextMenu?: XULPopupElement;
   private stylesheet?: HTMLElement;
+  private themeCleanup?: () => void;
+  private pendingSearchTimer: number | null = null;
   private unsubscribeTracker?: () => void;
   private unsubscribeGroupStore?: () => void;
   private trackedTabsByKey = new Map<string, TrackedTab>();
@@ -529,9 +531,7 @@ export default class VerticalTabSidebar {
       return false;
     }
 
-    trackedTabs.forEach((tab) => {
-      this.groupStore.addTabToGroup(groupId, tab);
-    });
+    this.groupStore.addTabsToGroup(groupId, trackedTabs);
     this.tracker.scheduleDelayedReconcile(
       `item-menu-open-into-group:${groupId}`,
       [120, 360, 720],
@@ -576,6 +576,7 @@ export default class VerticalTabSidebar {
     this.unsubscribeGroupStore?.();
     this.unsubscribeGroupStore = undefined;
     this.cancelPendingRender();
+    this.cancelPendingSearch();
     this.cancelMetadataResumeRender();
     this.cancelDeferredReaderLoadRefresh();
     this.pendingGroupToggleTimers.forEach((timerId) => {
@@ -592,6 +593,7 @@ export default class VerticalTabSidebar {
       splitter: this.splitter,
       contextMenu: this.contextMenu,
       stylesheet: this.stylesheet,
+      themeCleanup: this.themeCleanup,
     });
     this.sidebar = undefined;
     this.splitter = undefined;
@@ -604,6 +606,7 @@ export default class VerticalTabSidebar {
     this.searchInput = undefined;
     this.contextMenu = undefined;
     this.stylesheet = undefined;
+    this.themeCleanup = undefined;
     this.groupNameEditor = null;
     this.trackedTabsByKey.clear();
     this.trackedTabsByMemberKey.clear();
@@ -623,11 +626,7 @@ export default class VerticalTabSidebar {
       document: this.document,
       onToggleCollapsed: () => this.toggleCollapsed(),
       onCreateGroupFromUngroupedTabs: () => this.createGroupFromUngroupedTabs(),
-      onSearchInput: (value) => {
-        this.searchQuery = value.trim().toLocaleLowerCase();
-        this.persistSidebarState();
-        this.render(this.tracker.getSnapshot());
-      },
+      onSearchInput: (value) => this.handleSearchInput(value),
       onViewModeChange: (mode) => this.setViewMode(mode),
       onListDragOver: this.handleListDragOver,
       onListDrop: this.handleListDrop,
@@ -655,6 +654,31 @@ export default class VerticalTabSidebar {
     this.searchInput = elements.searchInput;
     this.contextMenu = elements.contextMenu;
     this.stylesheet = elements.stylesheet;
+    this.themeCleanup = elements.themeCleanup;
+  }
+
+  private handleSearchInput(value: string): void {
+    const query = value.trim().toLocaleLowerCase();
+    if (query === this.searchQuery) {
+      return;
+    }
+    this.searchQuery = query;
+    this.cancelPendingSearch();
+    this.pendingSearchTimer = this.window.setTimeout(() => {
+      this.pendingSearchTimer = null;
+      if (!this.initialized) {
+        return;
+      }
+      this.persistSidebarState();
+      this.requestRender(this.tracker.getSnapshot());
+    }, SIDEBAR.SEARCH_DEBOUNCE_MS);
+  }
+
+  private cancelPendingSearch(): void {
+    if (this.pendingSearchTimer != null) {
+      this.window.clearTimeout(this.pendingSearchTimer);
+      this.pendingSearchTimer = null;
+    }
   }
 
   private getDragState(): SidebarDragState {
@@ -1393,6 +1417,12 @@ export default class VerticalTabSidebar {
       return;
     }
 
+    if (isCurrentlyCollapsed) {
+      this.groupStore.toggleCollapsed(groupId);
+      this.render(this.tracker.getSnapshot());
+      return;
+    }
+
     const nextCollapsed = !isCurrentlyCollapsed;
     const chevron = container.querySelector(
       ".tab-enhance-vertical-group-chevron",
@@ -1820,6 +1850,7 @@ export default class VerticalTabSidebar {
 
   private renderBadge(iconKey: string): HTMLElement {
     return ztoolkit.UI.createElement(this.document, "span", {
+      enableElementRecord: false,
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-badge", `is-${iconKey}`],
       properties: {
@@ -1830,6 +1861,7 @@ export default class VerticalTabSidebar {
 
   private renderRowContent(titleText: string, metaText: string): HTMLElement {
     const content = ztoolkit.UI.createElement(this.document, "span", {
+      enableElementRecord: false,
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-content"],
     }) as HTMLSpanElement;
@@ -1837,6 +1869,7 @@ export default class VerticalTabSidebar {
     const title = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-title"],
+      enableElementRecord: false,
       properties: {
         textContent: titleText,
       },
@@ -1845,6 +1878,7 @@ export default class VerticalTabSidebar {
     const meta = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-meta"],
+      enableElementRecord: false,
       properties: {
         textContent: metaText,
       },
@@ -1859,6 +1893,7 @@ export default class VerticalTabSidebar {
 
   private renderCloseButton(handler: () => void): HTMLButtonElement {
     return ztoolkit.UI.createElement(this.document, "button", {
+      enableElementRecord: false,
       namespace: "html",
       classList: ["tab-enhance-vertical-tab-close"],
       properties: {
@@ -2382,6 +2417,10 @@ export default class VerticalTabSidebar {
   }
 
   private prepareInlineGroupNameEditor(): void {
+    if (this.pendingSearchTimer != null) {
+      this.cancelPendingSearch();
+      this.persistSidebarState();
+    }
     this.hideContextMenu();
     this.clearDragState();
     if (this.collapsed) {

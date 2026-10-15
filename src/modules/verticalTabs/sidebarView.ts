@@ -184,6 +184,7 @@ export default class SidebarViewRenderer {
     ) {
       const emptyState = ztoolkit.UI.createElement(this.document, "div", {
         namespace: "html",
+        enableElementRecord: false,
         classList: ["tab-enhance-vertical-tabs-empty"],
         properties: {
           textContent: state.searchQuery
@@ -396,16 +397,19 @@ export default class SidebarViewRenderer {
   ): HTMLElement {
     const container = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-aggregate-section"],
     }) as HTMLDivElement;
 
     const header = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-aggregate-header"],
     }) as HTMLDivElement;
 
     const title = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-aggregate-title"],
       properties: {
         textContent: section.title,
@@ -414,6 +418,7 @@ export default class SidebarViewRenderer {
 
     const count = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-aggregate-count"],
       properties: {
         textContent: String(section.tabs.length),
@@ -443,6 +448,7 @@ export default class SidebarViewRenderer {
   ): HTMLElement {
     const container = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group"],
     }) as HTMLDivElement;
     container.dataset.groupId = renderable.group.id;
@@ -455,6 +461,7 @@ export default class SidebarViewRenderer {
 
     const header = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group-header"],
       properties: {
         title: renderable.group.name,
@@ -530,6 +537,7 @@ export default class SidebarViewRenderer {
 
     const chevron = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group-chevron"],
       properties: {
         textContent: renderable.group.collapsed ? "▸" : "▾",
@@ -538,6 +546,7 @@ export default class SidebarViewRenderer {
 
     const colorChip = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group-color"],
     }) as HTMLSpanElement;
 
@@ -545,6 +554,7 @@ export default class SidebarViewRenderer {
       ? this.renderInlineGroupNameEditor(state.groupNameEditor, handlers)
       : (ztoolkit.UI.createElement(this.document, "span", {
           namespace: "html",
+          enableElementRecord: false,
           classList: ["tab-enhance-vertical-group-title"],
           properties: {
             textContent: renderable.group.name,
@@ -553,6 +563,7 @@ export default class SidebarViewRenderer {
 
     const count = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group-count"],
       properties: {
         textContent: String(renderable.group.members.length),
@@ -567,6 +578,7 @@ export default class SidebarViewRenderer {
 
     const members = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-group-members"],
       attributes: {
         "aria-hidden": renderable.group.collapsed ? "true" : "false",
@@ -577,6 +589,11 @@ export default class SidebarViewRenderer {
       `${Math.max(SIDEBAR.ROW_HEIGHT, renderable.members.length * SIDEBAR.ROW_HEIGHT)}px`,
     );
     syncCollapsibleState(members, renderable.group.collapsed);
+
+    if (renderable.group.collapsed) {
+      container.appendChild(members);
+      return container;
+    }
 
     renderable.members.forEach((member) => {
       if (
@@ -662,6 +679,7 @@ export default class SidebarViewRenderer {
   private renderDropPlaceholder(): HTMLElement {
     return ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-placeholder"],
       attributes: {
         "aria-hidden": "true",
@@ -678,6 +696,7 @@ export default class SidebarViewRenderer {
       palette[this.groupStore.getGroups().length % palette.length] ?? "#F6B433";
     const container = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: [
         "tab-enhance-inline-group-create",
         "tab-enhance-vertical-group-header",
@@ -694,6 +713,7 @@ export default class SidebarViewRenderer {
     container.appendChild(
       ztoolkit.UI.createElement(this.document, "span", {
         namespace: "html",
+        enableElementRecord: false,
         classList: ["tab-enhance-vertical-group-color"],
       }) as HTMLSpanElement,
     );
@@ -707,6 +727,7 @@ export default class SidebarViewRenderer {
   ): HTMLElement {
     const wrapper = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-inline-group-name-editor"],
       listeners: [
         { type: "click", listener: (event: Event) => event.stopPropagation() },
@@ -717,6 +738,7 @@ export default class SidebarViewRenderer {
 
     const input = ztoolkit.UI.createElement(this.document, "input", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-inline-group-name-input"],
       attributes: {
         type: "text",
@@ -812,6 +834,7 @@ export default class SidebarViewRenderer {
 
     const row = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-row"],
       properties: {
         title: tab.title,
@@ -902,6 +925,7 @@ export default class SidebarViewRenderer {
 
     const row = ztoolkit.UI.createElement(this.document, "div", {
       namespace: "html",
+      enableElementRecord: false,
       classList: [
         "tab-enhance-vertical-tab-row",
         "is-group-member",
@@ -952,6 +976,7 @@ export default class SidebarViewRenderer {
   private renderBadge(iconKey: string): HTMLElement {
     return ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-badge", `is-${iconKey}`],
       properties: {
         textContent: this.getBadgeText(iconKey),
@@ -962,11 +987,13 @@ export default class SidebarViewRenderer {
   private renderRowContent(titleText: string, metaText: string): HTMLElement {
     const content = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-content"],
     }) as HTMLSpanElement;
 
     const title = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-title"],
       properties: {
         textContent: titleText,
@@ -975,6 +1002,7 @@ export default class SidebarViewRenderer {
 
     const meta = ztoolkit.UI.createElement(this.document, "span", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-meta"],
       properties: {
         textContent: metaText,
@@ -994,6 +1022,7 @@ export default class SidebarViewRenderer {
   ): HTMLButtonElement {
     return ztoolkit.UI.createElement(this.document, "button", {
       namespace: "html",
+      enableElementRecord: false,
       classList: ["tab-enhance-vertical-tab-close"],
       properties: {
         textContent: "x",

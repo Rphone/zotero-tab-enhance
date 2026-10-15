@@ -106,11 +106,15 @@ export default class TabGroupStore {
     tabs: TrackedTab[],
     name?: string,
   ): VirtualGroup | null {
-    const members = tabs
-      .map((tab) => this.makeMemberFromTab(tab))
-      .filter((member, index, allMembers) =>
-        allMembers.findIndex((item) => item.key === member.key) === index,
-      );
+    const members: VirtualGroupMember[] = [];
+    const memberKeys = new Set<string>();
+    for (const tab of tabs) {
+      const key = this.makeMemberKeyFromTab(tab);
+      if (!memberKeys.has(key)) {
+        memberKeys.add(key);
+        members.push(this.makeMemberFromTab(tab));
+      }
+    }
     if (!members.length) {
       return null;
     }
@@ -137,6 +141,46 @@ export default class TabGroupStore {
   ): void {
     const member = this.makeMemberFromTab(tab);
     this.addMemberToGroup(groupId, member, targetMemberKey, position);
+  }
+
+  public addTabsToGroup(groupId: string, tabs: TrackedTab[]): void {
+    const group = this.groups.find((item) => item.id === groupId);
+    if (!group || !tabs.length) {
+      return;
+    }
+
+    const members = [...group.members];
+    const memberIndices = new Map<string, number>();
+    members.forEach((member, index) => {
+      if (!memberIndices.has(member.key)) {
+        memberIndices.set(member.key, index);
+      }
+    });
+    let changed = false;
+    for (const tab of tabs) {
+      const key = this.makeMemberKeyFromTab(tab);
+      const index = memberIndices.get(key);
+      const existingMember = index == null ? null : members[index];
+      const member = this.makeMemberFromTab(tab, existingMember?.id);
+      if (existingMember && this.areMembersEqual(existingMember, member)) {
+        continue;
+      }
+
+      changed = true;
+      if (index == null) {
+        memberIndices.set(key, members.length);
+        members.push(member);
+      } else {
+        members[index] = member;
+      }
+    }
+
+    if (changed) {
+      this.groups = this.groups.map((item) =>
+        item.id === groupId ? { ...item, members } : item,
+      );
+      this.emit();
+    }
   }
 
   public addMemberToGroup(
@@ -191,13 +235,18 @@ export default class TabGroupStore {
       }
 
       if (existingIndex >= 0) {
+        const existingMember = group.members[existingIndex];
+        const nextMember = {
+          ...existingMember,
+          ...member,
+          id: existingMember.id,
+        };
+        if (this.areMembersEqual(existingMember, nextMember)) {
+          return group;
+        }
         changed = true;
         const members = [...group.members];
-        members[existingIndex] = {
-          ...members[existingIndex],
-          ...member,
-          id: members[existingIndex].id,
-        };
+        members[existingIndex] = nextMember;
         return {
           ...group,
           members,
@@ -565,7 +614,10 @@ export default class TabGroupStore {
   }
 
   public findGroupById(groupId: string): VirtualGroup | null {
-    return this.getGroups().find((group) => group.id === groupId) ?? null;
+    const group = this.groups.find((item) => item.id === groupId);
+    return group
+      ? { ...group, members: group.members.map((member) => ({ ...member })) }
+      : null;
   }
 
   public getUngroupedTabs(tabs: TrackedTab[]): TrackedTab[] {

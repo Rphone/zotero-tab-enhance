@@ -239,6 +239,179 @@ describe("TabGroupStore", () => {
     assert(group.members[0].key === "item:1", "expected source tab member");
   });
 
+  it("keeps the first occurrence and order when creating a group", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const first = makeTab({ itemID: 1, title: "First" });
+    const second = makeTab({ itemID: 2, title: "Second" });
+
+    const group = store.createGroupFromTabs([
+      first,
+      second,
+      { ...first, title: "Duplicate" },
+    ]);
+
+    assert(group?.members.length === 2, "expected duplicate members removed");
+    assert(
+      group?.members.map((member) => member.title).join(",") === "First,Second",
+      "expected the first occurrence and input order to be retained",
+    );
+  });
+
+  it("notifies once when adding hundreds of tabs to an existing group", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const group = store.createGroupFromTab(makeTab({ itemID: 1 }));
+    let notifications = 0;
+    let savedMembers = 0;
+    store.subscribe((groups) => {
+      notifications += 1;
+      savedMembers += groups.reduce(
+        (count, item) => count + item.members.length,
+        0,
+      );
+    });
+    notifications = 0;
+    savedMembers = 0;
+    const tabs = Array.from({ length: 500 }, (_, index) =>
+      makeTab({
+        itemID: index + 2,
+        key: `tab:${index + 2}`,
+        tabId: String(index + 2),
+      }),
+    );
+
+    store.addTabsToGroup(group.id, tabs);
+
+    assert(notifications === 1, "expected one complete batch notification");
+    assert(savedMembers === 501, "expected listeners to receive members once");
+    const members = store.findGroupById(group.id)?.members ?? [];
+    assert(members.length === 501, "expected all members to be added");
+    assert(
+      members.every((member, index) => member.itemID === index + 1),
+      "expected original members followed by tabs in input order",
+    );
+  });
+
+  it("updates batch duplicates in place while retaining member identity", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const original = makeTab({ itemID: 1, title: "Original" });
+    const group = store.createGroupFromTab(original);
+
+    store.addTabsToGroup(group.id, [
+      makeTab({ itemID: 2, title: "Second" }),
+      { ...original, title: "Updated" },
+      makeTab({ itemID: 3, title: "Third" }),
+      makeTab({ itemID: 2, title: "Latest second" }),
+    ]);
+
+    const members = store.findGroupById(group.id)?.members ?? [];
+    assert(
+      members.map((member) => member.itemID).join(",") === "1,2,3",
+      "expected duplicates to retain their first position",
+    );
+    assert(
+      members[0].id === group.members[0].id,
+      "expected stable member identity",
+    );
+    assert(
+      members[0].title === "Updated",
+      "expected existing metadata updated",
+    );
+    assert(
+      members[1].title === "Latest second",
+      "expected latest duplicate metadata",
+    );
+  });
+
+  it("does not notify for unchanged members or empty and missing-group batches", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const tab = makeTab({});
+    const group = store.createGroupFromTab(tab);
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+    notifications = 0;
+
+    store.addTabToGroup(group.id, tab);
+    store.addTabsToGroup(group.id, [tab, { ...tab }]);
+    store.addTabsToGroup(group.id, []);
+    store.addTabsToGroup("missing-group", [tab]);
+
+    assert(notifications === 0, "expected no redundant change notifications");
+    assert(store.getGroups().length === 1, "expected no new groups created");
+  });
+
+  it("preserves note identity and reader aliases after a batch addition", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    store.setGroups([
+      makeGroup({
+        members: [
+          makeMember({ key: "item:100", itemID: null, parentItemID: 100 }),
+        ],
+      }),
+    ]);
+    const note = makeTab({
+      key: "tab:note",
+      tabId: "note",
+      type: "note",
+      itemID: 11,
+      parentItemID: 100,
+    });
+    const sibling = makeTab({
+      key: "tab:sibling",
+      tabId: "sibling",
+      type: "note-unloaded",
+      itemID: 12,
+      parentItemID: 100,
+    });
+    const pdf = makeTab({ itemID: 10, parentItemID: 100 });
+
+    store.addTabsToGroup("group-1", [note, { ...note }]);
+    store.syncTrackedTabs([sibling, pdf, note]);
+
+    const members = store.getGroups()[0].members;
+    assert(
+      members.map((member) => member.itemID).join(",") === "10,11",
+      "expected the reader alias and note to resolve to distinct items",
+    );
+    assert(
+      store.getUngroupedTabs([sibling, pdf, note])[0]?.itemID === 12,
+      "expected the sibling note to remain ungrouped",
+    );
+    assert(
+      !store.syncTrackedTabs([sibling, pdf, note]),
+      "expected repeated synchronization to leave the batch unchanged",
+    );
+  });
+
+  it("returns an independent copy when looking up a group", function () {
+    const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
+    const group = store.createGroupFromTab(makeTab({}));
+    const found = store.findGroupById(group.id);
+    assert(found != null, "expected to find the group");
+    if (!found) {
+      return;
+    }
+    found.name = "Changed outside the store";
+    found.members[0].title = "Changed outside the store";
+    found.members.push(makeMember({ itemID: 2 }));
+
+    const stored = store.findGroupById(group.id);
+    assert(stored?.name === group.name, "expected the stored name unchanged");
+    assert(
+      stored?.members.length === 1,
+      "expected the stored members unchanged",
+    );
+    assert(
+      stored?.members[0].title === "Paper",
+      "expected stored metadata unchanged",
+    );
+    assert(
+      store.findGroupById("missing") === null,
+      "expected missing groups to return null",
+    );
+  });
+
   it("cycles through all eight default group colors", function () {
     const store = new TabGroupStore({} as _ZoteroTypes.MainWindow);
     const colors = Array.from(

@@ -1,4 +1,3 @@
-import { ZoteroToolkit } from "zotero-plugin-toolkit";
 import { getString } from "../utils/locale";
 import TabCommandController from "./verticalTabs/tabCommands";
 import { getPref } from "../utils/prefs";
@@ -35,7 +34,7 @@ export default class TabEnhance {
   private lastClickedTabInfo: TabInfo | null = null;
   private handleContextMenuEvent!: (event: Event) => void;
   private handlepopupshowingEvent!: (event: Event) => void;
-  private ztoolkit: ZoteroToolkit = ztoolkit;
+  private ztoolkit: ZToolkit = ztoolkit;
   private availableMenuItems: MenuItemConfig[] = [];
   private commandController: TabCommandController;
 

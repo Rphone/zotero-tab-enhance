@@ -14,6 +14,8 @@ describe("sidebar asynchronous initialization", function () {
   let failLoading: (error: Error) => void;
   let savedGroups: string;
   let groupWrites: number;
+  let stateWrites: number;
+  let savedState: string;
   let mounts: number;
   let renders: number;
   let runtimeTabs: Array<{
@@ -27,6 +29,8 @@ describe("sidebar asynchronous initialization", function () {
   beforeEach(function () {
     originalGlobals = { Zotero: globalThis.Zotero, addon: globalThis.addon };
     groupWrites = mounts = renders = 0;
+    stateWrites = 0;
+    savedState = "";
     timers = new Map();
     let timerID = 0;
     const loadedIDs = new Set<number>();
@@ -82,6 +86,10 @@ describe("sidebar asynchronous initialization", function () {
           get: (key: string) =>
             key.endsWith(".verticalTabs.groups") ? savedGroups : null,
           set: (key: string, value: string) => {
+            if (key.endsWith(".verticalTabs.sidebarState")) {
+              savedState = value;
+              stateWrites += 1;
+            }
             if (key.endsWith(".verticalTabs.groups")) {
               savedGroups = value;
               groupWrites += 1;
@@ -210,6 +218,156 @@ describe("sidebar asynchronous initialization", function () {
     assert(
       savedGroups === "[]" && groupWrites === 0,
       "expected the reset to win",
+    );
+  });
+
+  it("releases mounted theme observers exactly once when destroyed", function () {
+    let cleanups = 0;
+    const coordinator = sidebar as unknown as {
+      assignMountedElements: (elements: { themeCleanup: () => void }) => void;
+    };
+    coordinator.assignMountedElements({ themeCleanup: () => cleanups++ });
+    sidebar.destroy();
+    sidebar.destroy();
+    assert(cleanups === 1, "expected theme listeners to be released once");
+  });
+
+  it("coalesces rapid search input into one save and one render", async function () {
+    finishLoading();
+    await sidebar.init();
+    for (const [id, callback] of [...timers]) {
+      timers.delete(id);
+      callback();
+    }
+    const beforeRenders = renders;
+    const beforeWrites = stateWrites;
+    const coordinator = sidebar as unknown as {
+      handleSearchInput: (value: string) => void;
+    };
+    for (const query of ["P", "Pa", "Paper", " PAPER "]) {
+      coordinator.handleSearchInput(query);
+    }
+    assert(
+      renders === beforeRenders && stateWrites === beforeWrites,
+      "expected no render or preference write inside the input handler",
+    );
+    assert(timers.size === 1, "expected one pending search update");
+    for (const [id, callback] of [...timers]) {
+      timers.delete(id);
+      callback();
+    }
+    for (const [id, callback] of [...timers]) {
+      timers.delete(id);
+      callback();
+    }
+    assert(stateWrites === beforeWrites + 1, "expected one search save");
+    assert(renders === beforeRenders + 1, "expected one search render");
+    assert(
+      JSON.parse(savedState).searchQuery === "paper",
+      "expected the latest query",
+    );
+  });
+
+  it("saves the latest search and cancels delayed work on destruction", async function () {
+    finishLoading();
+    await sidebar.init();
+    (
+      sidebar as unknown as { handleSearchInput: (value: string) => void }
+    ).handleSearchInput("Pending search");
+    const beforeRenders = renders;
+    sidebar.destroy();
+    assert(
+      timers.size === 0,
+      "expected no search or render timers after destruction",
+    );
+    assert(renders === beforeRenders, "expected no late render");
+    assert(
+      JSON.parse(savedState).searchQuery === "pending search",
+      "expected destruction to preserve the latest search",
+    );
+  });
+
+  it("does not replace a focused group editor with a delayed search render", async function () {
+    finishLoading();
+    await sidebar.init();
+    for (const [id, callback] of [...timers]) {
+      timers.delete(id);
+      callback();
+    }
+    let focused = false;
+    Object.assign(sidebar, {
+      focusInlineGroupNameEditor: () => {
+        focused = true;
+      },
+    });
+    const coordinator = sidebar as unknown as {
+      handleSearchInput: (value: string) => void;
+      beginRenameGroupEditor: (group: VirtualGroup) => void;
+    };
+    coordinator.handleSearchInput("Saved group");
+    coordinator.beginRenameGroupEditor(sidebar.getGroupsForContextMenu()[0]);
+    const focusedRenders = renders;
+    for (const [id, callback] of [...timers]) {
+      timers.delete(id);
+      callback();
+    }
+    assert(focused, "expected the group name editor to receive focus");
+    assert(
+      renders === focusedRenders,
+      "expected no delayed search render after focus",
+    );
+    assert(
+      JSON.parse(savedState).searchQuery === "saved group",
+      "expected the search saved before editing",
+    );
+  });
+
+  it("persists a batch of opened items once when adding them to a group", async function () {
+    finishLoading();
+    await sidebar.init();
+    const tab = tracker.getTabs()[0];
+    Object.assign(sidebar, {
+      openItemsAsTrackedTabs: async () =>
+        Array.from({ length: 100 }, (_, index) => ({
+          ...tab,
+          key: `tab:new-${index}`,
+          tabId: `new-${index}`,
+          itemID: index + 100,
+        })),
+    });
+    const beforeWrites = groupWrites;
+    assert(
+      await sidebar.openItemsIntoGroup([], "g1"),
+      "expected the batch to be added",
+    );
+    assert(groupWrites === beforeWrites + 1, "expected one persisted batch");
+    assert(
+      sidebar.getGroupsForContextMenu()[0].members.length === 101,
+      "expected all batch members and the original member",
+    );
+  });
+
+  it("renders member rows immediately when expanding a lazy group", async function () {
+    finishLoading();
+    await sidebar.init();
+    const coordinator = sidebar as unknown as {
+      groupStore: { toggleCollapsed: (id: string) => void };
+      requestGroupCollapsedToggle: (
+        id: string,
+        collapsed: boolean,
+        container: HTMLDivElement,
+      ) => void;
+    };
+    coordinator.groupStore.toggleCollapsed("g1");
+    const beforeRenders = renders;
+    coordinator.requestGroupCollapsedToggle("g1", true, {} as HTMLDivElement);
+    assert(
+      !sidebar.getGroupsForContextMenu()[0].collapsed,
+      "expected expansion immediately",
+    );
+    assert(
+      renders === beforeRenders + 1,
+      "expected member creation without waiting for an animation",
     );
   });
 });
