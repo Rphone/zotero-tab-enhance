@@ -360,7 +360,8 @@ export default class SidebarViewRenderer {
   private buildTypeSections(tabs: TrackedTab[]): AggregateSection[] {
     const sectionMap = new Map<string, AggregateSection>();
     tabs.forEach((tab) => {
-      const sectionId = tab.type || "unknown";
+      // Web snapshots open in the reader but belong with web pages.
+      const sectionId = tab.iconKey === "web" ? "web" : tab.type || "unknown";
       if (!sectionMap.has(sectionId)) {
         sectionMap.set(sectionId, {
           id: `type-${sectionId}`,

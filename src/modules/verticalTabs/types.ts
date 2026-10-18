@@ -62,6 +62,18 @@ export const GROUP_COLOR_PALETTE = [
   "#D65A9E",
 ] as const;
 
+// Reader tabs show PDFs, EPUBs and web snapshots; badge them by reader type.
+export function getReaderIconKey(readerType: unknown): string {
+  switch (readerType) {
+    case "epub":
+      return "epub";
+    case "snapshot":
+      return "web";
+    default:
+      return "reader";
+  }
+}
+
 export function makeVirtualMemberKey(input: {
   itemID?: number | null;
   parentItemID?: number | null;

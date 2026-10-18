@@ -652,6 +652,14 @@
   color: #d64242;
 }
 
+.tab-enhance-vertical-tab-badge.is-epub {
+  color: #8f5bd6;
+}
+
+.tab-enhance-vertical-tab-badge.is-web {
+  color: #2e9d5b;
+}
+
 .tab-enhance-vertical-tab-content {
   display: flex;
   flex: 1;
