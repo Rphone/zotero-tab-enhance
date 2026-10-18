@@ -1,4 +1,9 @@
-import { LIBRARY_TAB_ID, TabTrackerSnapshot, TrackedTab } from "./types";
+import {
+  getReaderIconKey,
+  LIBRARY_TAB_ID,
+  TabTrackerSnapshot,
+  TrackedTab,
+} from "./types";
 
 type SnapshotListener = (snapshot: TabTrackerSnapshot) => void;
 
@@ -335,7 +340,7 @@ export default class TabTrackerService {
       isSelected,
       nativeIndex,
       openedAt: this.openedAtByTabId.get(tab.id) ?? null,
-      iconKey: this.getIconKey(tab),
+      iconKey: this.getIconKey(tab, itemID),
     };
   }
 
@@ -376,11 +381,21 @@ export default class TabTrackerService {
     return tab.id;
   }
 
-  private getIconKey(tab: RuntimeTabLike): string {
-    if (tab.type === "reader-unloaded") {
-      return "reader";
+  private getIconKey(tab: RuntimeTabLike, itemID: number | null): string {
+    if (tab.type?.startsWith("reader")) {
+      return this.resolveReaderIconKey(itemID);
     }
     return tab.type || "unknown";
+  }
+
+  private resolveReaderIconKey(itemID: number | null): string {
+    try {
+      const item = itemID == null ? null : Zotero.Items.get(itemID);
+      return getReaderIconKey(item ? item.attachmentReaderType : null);
+    } catch (error) {
+      ztoolkit.log("TabTrackerService failed to resolve reader type", error);
+      return "reader";
+    }
   }
 
   private makeTabKey(tabId: string): string {

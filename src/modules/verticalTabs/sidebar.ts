@@ -50,6 +50,7 @@ import {
   restoreSidebarState,
 } from "./sidebarPersistence";
 import {
+  getReaderIconKey,
   LIBRARY_TAB_ID,
   TabTrackerSnapshot,
   TrackedTab,
@@ -893,7 +894,6 @@ export default class VerticalTabSidebar {
         type: loadedTab.type ?? "reader",
         title: loadedTab.title?.trim() || loadedTab.tabId,
         itemID: loadedTab.itemID ?? null,
-        iconKey: "reader",
       });
       const row = this.listContainer?.querySelector<HTMLElement>(
         `.tab-enhance-vertical-tab-row[data-tab-id="${CSS.escape(loadedTab.tabId)}"]`,
@@ -937,7 +937,6 @@ export default class VerticalTabSidebar {
               type: patchedTab.type ?? "reader",
               title: patchedTab.title?.trim() || tab.title,
               itemID: patchedTab.itemID ?? tab.itemID,
-              iconKey: "reader",
             });
           })
           .filter((tab) => this.shouldRenderTab(tab)),
@@ -2782,7 +2781,7 @@ export default class VerticalTabSidebar {
       isSelected: false,
       nativeIndex: this.tracker.getTabs().length,
       openedAt: Date.now(),
-      iconKey: "reader",
+      iconKey: getReaderIconKey(attachment?.attachmentReaderType),
     };
   }
 
