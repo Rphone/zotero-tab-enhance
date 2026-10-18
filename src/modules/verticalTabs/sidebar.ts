@@ -3560,7 +3560,14 @@ export default class VerticalTabSidebar {
       return liveTab;
     }
 
-    this.tracker.reconcile(`member-lookup:${memberKey}`);
+    const snapshot = this.tracker.reconcile(`member-lookup:${memberKey}`);
+    // Reconciling only schedules a render, so refresh the lookup maps now;
+    // otherwise a just-reopened tab is not found and never selected.
+    this.refreshTrackedTabMaps(
+      snapshot.tabs
+        .map((tab) => this.normalizeTab(tab))
+        .filter((tab) => this.shouldRenderTab(tab)),
+    );
     return this.trackedTabsByMemberKey.get(memberKey) ?? null;
   }
 
