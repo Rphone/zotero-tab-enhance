@@ -8,6 +8,7 @@ pref("__prefsPrefix__.verticalTabTitleMode", "title");
 pref("__prefsPrefix__.verticalTabSubtitleMode", "source");
 pref("__prefsPrefix__.verticalTabRowHeight", 42);
 pref("__prefsPrefix__.verticalTabFontSize", 13);
+pref("__prefsPrefix__.verticalTabCustomCSS", "");
 pref("__prefsPrefix__.groupColor1", "#F6B433");
 pref("__prefsPrefix__.groupColor2", "#E36D6D");
 pref("__prefsPrefix__.groupColor3", "#5C8DF6");

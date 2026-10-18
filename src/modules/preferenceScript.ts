@@ -32,6 +32,7 @@ const PREF_CONTROL_CONFIG = [
 ] as const;
 
 const RESET_BUTTON_ID = `${config.addonRef}-pref-reset-plugin-data`;
+const CUSTOM_CSS_INPUT_ID = `${config.addonRef}-pref-vertical-tab-custom-css`;
 
 const DISPLAY_SELECT_CONFIG = [
   {
@@ -142,6 +143,17 @@ function bindPrefEvents() {
     input.addEventListener("change", syncColor);
   });
 
+  const customCSSInput = prefsWindow.document.getElementById(
+    CUSTOM_CSS_INPUT_ID,
+  ) as HTMLTextAreaElement | null;
+  if (customCSSInput) {
+    customCSSInput.value = getPref("verticalTabCustomCSS");
+    customCSSInput.addEventListener("change", () => {
+      setPref("verticalTabCustomCSS", customCSSInput.value);
+      void addon.hooks.onPrefsEvent("displayPrefsChanged", {});
+    });
+  }
+
   prefsWindow.document
     .getElementById(RESET_BUTTON_ID)
     ?.addEventListener("click", async () => {
@@ -194,6 +206,13 @@ function syncPrefControls(window: Window) {
     }
     input.value = String(getPref(key));
   });
+
+  const customCSSInput = window.document.getElementById(
+    CUSTOM_CSS_INPUT_ID,
+  ) as HTMLTextAreaElement | null;
+  if (customCSSInput) {
+    customCSSInput.value = getPref("verticalTabCustomCSS");
+  }
 }
 
 export {

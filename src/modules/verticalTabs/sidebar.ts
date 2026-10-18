@@ -42,6 +42,7 @@ import {
   updateDropIndicator,
 } from "./sidebarDrag";
 import { mountSidebarLayout, removeSidebarLayout } from "./sidebarLayout";
+import { scopeSidebarCustomCSS } from "./sidebarCustomStyle";
 import {
   isSidebarViewMode,
   persistGroupsState,
@@ -84,6 +85,7 @@ export default class VerticalTabSidebar {
   private searchInput?: HTMLInputElement;
   private contextMenu?: XULPopupElement;
   private stylesheet?: HTMLElement;
+  private customStylesheet?: HTMLStyleElement;
   private themeCleanup?: () => void;
   private pendingSearchTimer: number | null = null;
   private unsubscribeTracker?: () => void;
@@ -593,6 +595,7 @@ export default class VerticalTabSidebar {
       splitter: this.splitter,
       contextMenu: this.contextMenu,
       stylesheet: this.stylesheet,
+      customStylesheet: this.customStylesheet,
       themeCleanup: this.themeCleanup,
     });
     this.sidebar = undefined;
@@ -606,6 +609,7 @@ export default class VerticalTabSidebar {
     this.searchInput = undefined;
     this.contextMenu = undefined;
     this.stylesheet = undefined;
+    this.customStylesheet = undefined;
     this.themeCleanup = undefined;
     this.groupNameEditor = null;
     this.trackedTabsByKey.clear();
@@ -654,6 +658,7 @@ export default class VerticalTabSidebar {
     this.searchInput = elements.searchInput;
     this.contextMenu = elements.contextMenu;
     this.stylesheet = elements.stylesheet;
+    this.customStylesheet = elements.customStylesheet;
     this.themeCleanup = elements.themeCleanup;
   }
 
@@ -3546,9 +3551,15 @@ export default class VerticalTabSidebar {
     if (!this.sidebar) {
       return;
     }
-    const { rowHeight, fontSize } = getVerticalTabStylePrefs();
+    const { rowHeight, fontSize, customCSS } = getVerticalTabStylePrefs();
     this.sidebar.style.setProperty("--te-tab-row-height", `${rowHeight}px`);
     this.sidebar.style.setProperty("--te-tab-font-size", `${fontSize}px`);
+    if (this.customStylesheet) {
+      this.customStylesheet.textContent = scopeSidebarCustomCSS(
+        this.window,
+        customCSS,
+      );
+    }
   }
 
   private findTrackedTabByMemberKey(

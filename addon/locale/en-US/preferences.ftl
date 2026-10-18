@@ -23,6 +23,8 @@ pref-vertical-tab-subtitle-mode-type-and-item = Type and Item ID
 pref-vertical-tab-subtitle-mode-none = Hidden
 pref-vertical-tab-row-height = Tab height (pixels, minimum 32)
 pref-vertical-tab-font-size = Tab text size (pixels, minimum 10)
+pref-vertical-tab-custom-css = Custom CSS for tabs and group headers
+pref-vertical-tab-custom-css-hint = Applies only inside the vertical tab sidebar; leave empty to use the default style. Main selectors: .tab-enhance-vertical-group-header, .tab-enhance-vertical-group-title, .tab-enhance-vertical-tab-row, .tab-enhance-vertical-tab-row.is-selected, .tab-enhance-vertical-tab-title, .tab-enhance-vertical-tab-meta. Dark-theme defaults are more specific (.tab-enhance-vertical-tabs-sidebar.is-dark-theme …), so add that prefix or use !important. Nested rules and at-rules other than @media and @supports are ignored.
 
 pref-group-colors = Group Base Colors
 pref-group-color-1 = Color 1

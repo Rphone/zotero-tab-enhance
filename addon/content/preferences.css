@@ -17,6 +17,23 @@
   min-height: 30px;
 }
 
+.tab-enhance-pref-custom-css {
+  max-width: 680px;
+  margin-top: 10px;
+}
+
+.tab-enhance-pref-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font-family: monospace;
+  resize: vertical;
+}
+
+.tab-enhance-pref-hint {
+  font-size: 0.9em;
+  opacity: 0.75;
+}
+
 .tab-enhance-pref-color-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(104px, 1fr));

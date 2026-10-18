@@ -29,6 +29,7 @@ export function mountSidebarLayout(
   }
 
   const stylesheet = ensureStylesheet(options.document);
+  const customStylesheet = createCustomStylesheet(options.document, stylesheet);
 
   const sidebar = ztoolkit.UI.createElement(options.document, "vbox", {
     classList: ["tab-enhance-vertical-tabs-sidebar"],
@@ -232,6 +233,7 @@ export function mountSidebarLayout(
     searchInput,
     contextMenu,
     stylesheet,
+    customStylesheet,
     themeCleanup,
   };
 }
@@ -242,6 +244,7 @@ export function removeSidebarLayout(elements: Partial<SidebarElements>): void {
   elements.splitter?.remove();
   elements.contextMenu?.remove();
   elements.stylesheet?.remove();
+  elements.customStylesheet?.remove();
 }
 
 function ensureStylesheet(document: Document): HTMLElement {
@@ -262,6 +265,21 @@ function ensureStylesheet(document: Document): HTMLElement {
   }) as HTMLElement;
   document.documentElement?.appendChild(link);
   return link;
+}
+
+// Follows the built-in stylesheet so equal-specificity custom rules win.
+function createCustomStylesheet(
+  document: Document,
+  stylesheet: HTMLElement,
+): HTMLStyleElement {
+  const style = ztoolkit.UI.createElement(document, "style", {
+    namespace: "html",
+    attributes: {
+      id: `${config.addonRef}-vertical-tabs-custom-style`,
+    },
+  }) as HTMLStyleElement;
+  stylesheet.after(style);
+  return style;
 }
 
 function syncSidebarThemeClass(

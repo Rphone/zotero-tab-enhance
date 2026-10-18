@@ -60,6 +60,7 @@ export interface SidebarElements {
   searchInput: HTMLInputElement;
   contextMenu: XULPopupElement;
   stylesheet: HTMLElement;
+  customStylesheet: HTMLStyleElement;
   themeCleanup?: () => void;
 }
 

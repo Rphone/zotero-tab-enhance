@@ -24,6 +24,8 @@ pref-vertical-tab-subtitle-mode-type-and-item = 类型与条目编号
 pref-vertical-tab-subtitle-mode-none = 不显示
 pref-vertical-tab-row-height = 标签页高度（像素，最低 32）
 pref-vertical-tab-font-size = 标签文字大小（像素，最低 10）
+pref-vertical-tab-custom-css = 标签页与分组标题自定义 CSS
+pref-vertical-tab-custom-css-hint = 仅作用于垂直标签栏内部，留空即使用默认样式。常用选择器：.tab-enhance-vertical-group-header、.tab-enhance-vertical-group-title、.tab-enhance-vertical-tab-row、.tab-enhance-vertical-tab-row.is-selected、.tab-enhance-vertical-tab-title、.tab-enhance-vertical-tab-meta。深色主题的默认样式优先级更高（.tab-enhance-vertical-tabs-sidebar.is-dark-theme …），需加上该前缀或使用 !important。嵌套规则以及除 @media 和 @supports 外的 @ 规则会被忽略。
 
 pref-group-colors = 分组基础颜色
 pref-group-color-1 = 颜色 1

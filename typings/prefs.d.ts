@@ -16,6 +16,7 @@ declare namespace _ZoteroTypes {
       "verticalTabSubtitleMode": string;
       "verticalTabRowHeight": number;
       "verticalTabFontSize": number;
+      "verticalTabCustomCSS": string;
       "groupColor1": string;
       "groupColor2": string;
       "groupColor3": string;

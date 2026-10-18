@@ -49,5 +49,6 @@ describe("vertical tab style preferences", function () {
     const prefs = getVerticalTabStylePrefs();
     assert(prefs.rowHeight === 32, "expected normalized row height");
     assert(prefs.fontSize === 24, "expected normalized font size");
+    assert(prefs.customCSS === "", "expected no custom CSS by default");
   });
 });

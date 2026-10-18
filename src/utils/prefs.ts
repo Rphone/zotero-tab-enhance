@@ -28,6 +28,7 @@ export const PLUGIN_PREF_KEYS = [
   "verticalTabSubtitleMode",
   "verticalTabRowHeight",
   "verticalTabFontSize",
+  "verticalTabCustomCSS",
   "groupColor1",
   "groupColor2",
   "groupColor3",
@@ -63,6 +64,7 @@ const DEFAULT_PREF_VALUES: PluginPrefsMap = {
     VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabRowHeight.defaultValue,
   verticalTabFontSize:
     VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabFontSize.defaultValue,
+  verticalTabCustomCSS: "",
   groupColor1: GROUP_COLOR_PALETTE[0],
   groupColor2: GROUP_COLOR_PALETTE[1],
   groupColor3: GROUP_COLOR_PALETTE[2],
@@ -176,6 +178,7 @@ export function getGroupColorPalette(): string[] {
 export function getVerticalTabStylePrefs(): {
   rowHeight: number;
   fontSize: number;
+  customCSS: string;
 } {
   return {
     rowHeight: normalizeVerticalTabStylePrefValue(
@@ -186,6 +189,7 @@ export function getVerticalTabStylePrefs(): {
       "verticalTabFontSize",
       getPref("verticalTabFontSize"),
     ),
+    customCSS: getPref("verticalTabCustomCSS"),
   };
 }
 

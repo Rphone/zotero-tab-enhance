@@ -55,6 +55,8 @@ export type FluentMessageId =
   | 'pref-help'
   | 'pref-reset-plugin-data'
   | 'pref-tab-display'
+  | 'pref-vertical-tab-custom-css'
+  | 'pref-vertical-tab-custom-css-hint'
   | 'pref-vertical-tab-font-size'
   | 'pref-vertical-tab-row-height'
   | 'pref-vertical-tab-subtitle-mode'
