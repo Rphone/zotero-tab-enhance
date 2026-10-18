@@ -39,5 +39,11 @@ pref-group-color-6 = 颜色 6
 pref-group-color-7 = 颜色 7
 pref-group-color-8 = 颜色 8
 
+pref-shortcuts = 快捷键（垂直标签栏）
+pref-shortcut-toggle-sidebar = Ctrl/Cmd + B：折叠或展开垂直标签栏
+pref-shortcut-focus-search = Ctrl/Cmd + Alt/Option + F：聚焦侧边栏搜索框
+pref-shortcut-switch-tab = Ctrl/Cmd + Alt/Option + ↑ / ↓：按侧边栏顺序切换到上一个/下一个标签页
+pref-shortcut-toggle-group = Ctrl/Cmd + Alt/Option + C：折叠或展开当前标签页所在分组
+
 pref-data-reset = 数据重置
 pref-reset-plugin-data = 一键清除插件持久化数据并恢复初始化状态

@@ -38,5 +38,11 @@ pref-group-color-6 = Color 6
 pref-group-color-7 = Color 7
 pref-group-color-8 = Color 8
 
+pref-shortcuts = Keyboard Shortcuts (vertical sidebar)
+pref-shortcut-toggle-sidebar = Ctrl/Cmd + B: collapse or expand the vertical sidebar
+pref-shortcut-focus-search = Ctrl/Cmd + Alt/Option + F: focus the sidebar search
+pref-shortcut-switch-tab = Ctrl/Cmd + Alt/Option + ↑ / ↓: previous / next tab in sidebar order
+pref-shortcut-toggle-group = Ctrl/Cmd + Alt/Option + C: collapse or expand the current tab's group
+
 pref-data-reset = Data Reset
 pref-reset-plugin-data = Clear all persisted plugin data and restore the initial state

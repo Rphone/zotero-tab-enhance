@@ -136,23 +136,105 @@ export default class VerticalTabSidebar {
   };
 
   private readonly handleGlobalKeyDown = (event: KeyboardEvent) => {
-    // Ctrl+B: Toggle sidebar visibility
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
-      // Don't toggle if user is typing in search input or other form elements
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
+    if (!event.ctrlKey && !event.metaKey) {
+      return;
+    }
+    // Don't handle shortcuts while the user is typing in form elements
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
+    let handled = true;
+    if (event.key.toLowerCase() === "b") {
+      // Ctrl/Cmd+B: Toggle sidebar visibility
+      this.toggleCollapsed();
+    } else if (event.altKey && !event.shiftKey) {
+      // Ctrl/Cmd+Alt shortcuts; event.code because Option changes event.key
+      // on macOS. Zotero's item tree and reader leave these combinations free.
+      handled = this.handleAltShortcut(event.code);
+    } else {
+      handled = false;
+    }
+    if (handled) {
       event.preventDefault();
       event.stopPropagation();
-      this.toggleCollapsed();
     }
   };
+
+  private handleAltShortcut(code: string): boolean {
+    switch (code) {
+      case "KeyF":
+        this.focusSearchInput();
+        return true;
+      case "ArrowUp":
+        this.selectAdjacentTab(-1);
+        return true;
+      case "ArrowDown":
+        this.selectAdjacentTab(1);
+        return true;
+      case "KeyC":
+        this.toggleSelectedTabGroup();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private focusSearchInput(): void {
+    if (this.collapsed) {
+      this.toggleCollapsed();
+    }
+    this.searchInput?.focus();
+    this.searchInput?.select();
+  }
+
+  // Follows the open tabs in the order the sidebar currently shows them.
+  private selectAdjacentTab(direction: 1 | -1): void {
+    const tabIds = Array.from<HTMLElement>(
+      this.listContainer?.querySelectorAll<HTMLElement>(
+        ".tab-enhance-vertical-tab-row[data-tab-id]",
+      ) ?? [],
+    ).map((row) => row.dataset.tabId as string);
+    if (!tabIds.length) {
+      return;
+    }
+
+    const index = tabIds.indexOf(this.window.Zotero_Tabs.selectedID);
+    const nextIndex =
+      index < 0
+        ? direction > 0
+          ? 0
+          : tabIds.length - 1
+        : (index + direction + tabIds.length) % tabIds.length;
+    this.commandController.select(tabIds[nextIndex]);
+  }
+
+  private toggleSelectedTabGroup(): void {
+    const selectedTab = this.tracker.getSelectedTab();
+    if (!selectedTab) {
+      return;
+    }
+    const tab = this.normalizeTab(selectedTab);
+    const group = this.groupStore
+      .getGroups()
+      .find((item) => this.groupStore.containsTab(item.id, tab));
+    if (!group) {
+      return;
+    }
+
+    const container = this.getGroupContainer(group.id);
+    if (container) {
+      this.requestGroupCollapsedToggle(group.id, group.collapsed, container);
+    } else {
+      this.groupStore.toggleCollapsed(group.id);
+    }
+  }
 
   private readonly handleListDragOver = (event: DragEvent) => {
     if (!this.listContainer) {
@@ -1471,13 +1553,9 @@ export default class VerticalTabSidebar {
   // Expanded rows are freshly rendered, so start them collapsed and let the
   // CSS transition run to the expanded state.
   private animateGroupExpansion(groupId: string): void {
-    const members = Array.from<HTMLDivElement>(
-      this.listContainer?.querySelectorAll<HTMLDivElement>(
-        ".tab-enhance-vertical-group",
-      ) ?? [],
-    )
-      .find((container) => container.dataset.groupId === groupId)
-      ?.querySelector<HTMLDivElement>(".tab-enhance-vertical-group-members");
+    const members = this.getGroupContainer(
+      groupId,
+    )?.querySelector<HTMLDivElement>(".tab-enhance-vertical-group-members");
     if (!members) {
       return;
     }
@@ -1485,6 +1563,16 @@ export default class VerticalTabSidebar {
     syncCollapsibleState(members, true);
     void members.offsetHeight;
     syncCollapsibleState(members, false);
+  }
+
+  private getGroupContainer(groupId: string): HTMLDivElement | null {
+    return (
+      Array.from<HTMLDivElement>(
+        this.listContainer?.querySelectorAll<HTMLDivElement>(
+          ".tab-enhance-vertical-group",
+        ) ?? [],
+      ).find((container) => container.dataset.groupId === groupId) ?? null
+    );
   }
   private getRenderableGroups(openTabs: TrackedTab[]): RenderableGroup[] {
     const groups = this.groupStore.getGroups();

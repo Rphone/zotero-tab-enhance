@@ -15,6 +15,7 @@ Tab Enhance is a Zotero add-on for managing tabs. It provides a searchable, grou
 - **Drag-and-drop management**: Reorder native tabs, group members, and groups, or move tabs between groups.
 - **Horizontal tab context menu**: Show attachments in the file manager, reload readers, copy citations, and create or join groups.
 - **Open and group from the item list**: Open the best file attachments of one or more selected items into a new or existing group.
+- **Keyboard shortcuts**: `Ctrl/Cmd+B` collapses the sidebar; `Ctrl/Cmd+Alt/Option+F` focuses its search, `+↑/↓` switches tabs in sidebar order, and `+C` collapses or expands the current tab's group.
 
 ## Installation and Setup
 
