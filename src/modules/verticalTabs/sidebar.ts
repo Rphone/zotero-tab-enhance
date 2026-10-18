@@ -1420,6 +1420,7 @@ export default class VerticalTabSidebar {
     if (isCurrentlyCollapsed) {
       this.groupStore.toggleCollapsed(groupId);
       this.render(this.tracker.getSnapshot());
+      this.animateGroupExpansion(groupId);
       return;
     }
 
@@ -1455,6 +1456,25 @@ export default class VerticalTabSidebar {
     collapsed: boolean,
   ): void {
     syncCollapsibleState(members, collapsed);
+  }
+
+  // Expanded rows are freshly rendered, so start them collapsed and let the
+  // CSS transition run to the expanded state.
+  private animateGroupExpansion(groupId: string): void {
+    const members = Array.from<HTMLDivElement>(
+      this.listContainer?.querySelectorAll<HTMLDivElement>(
+        ".tab-enhance-vertical-group",
+      ) ?? [],
+    )
+      .find((container) => container.dataset.groupId === groupId)
+      ?.querySelector<HTMLDivElement>(".tab-enhance-vertical-group-members");
+    if (!members) {
+      return;
+    }
+
+    syncCollapsibleState(members, true);
+    void members.offsetHeight;
+    syncCollapsibleState(members, false);
   }
   private getRenderableGroups(openTabs: TrackedTab[]): RenderableGroup[] {
     const groups = this.groupStore.getGroups();
