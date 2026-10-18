@@ -389,6 +389,15 @@
   color: var(--te-text-primary);
 }
 
+/* Group menu items show their color as a header-like tint, not as text color. */
+.tab-enhance-group-menuitem:not([_moz-menuactive="true"]) {
+  background-color: color-mix(
+    in srgb,
+    var(--group-color, #f6b433) 18%,
+    transparent
+  );
+}
+
 .tab-enhance-inline-group-create {
   box-sizing: border-box;
   width: calc(100% - 16px);

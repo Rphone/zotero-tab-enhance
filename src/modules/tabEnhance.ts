@@ -203,7 +203,8 @@ export default class TabEnhance {
         "menuitem",
       );
       menuItem.setAttribute("label", group.name);
-      menuItem.setAttribute("style", `color:${group.color};`);
+      menuItem.classList.add("tab-enhance-group-menuitem");
+      menuItem.setAttribute("style", `--group-color:${group.color};`);
       menuItem.addEventListener("command", () => {
         const sidebar = addon.verticalTabSidebarInstances.get(this.window);
         sidebar?.addOpenTabToGroup(tabInfo.tabId, group.id);

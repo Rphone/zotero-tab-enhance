@@ -324,7 +324,8 @@ export default class SidebarMenuController {
       menuItem.setAttribute("disabled", "true");
     }
     if (color) {
-      menuItem.setAttribute("style", `color:${color};`);
+      menuItem.classList.add("tab-enhance-group-menuitem");
+      menuItem.setAttribute("style", `--group-color:${color};`);
     }
 
     return menuItem;
