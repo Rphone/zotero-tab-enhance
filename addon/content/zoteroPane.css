@@ -10,6 +10,9 @@
   --te-tab-row-height: 42px;
   --te-tab-font-size: 13px;
   position: relative;
+  /* Stay above Zotero's fixed, full-width #zotero-tab-cover (z-index: 2), the
+     "Loading" overlay shown while an unloaded reader tab loads. */
+  z-index: 3;
   display: flex;
   flex-direction: column;
   min-width: 44px;
