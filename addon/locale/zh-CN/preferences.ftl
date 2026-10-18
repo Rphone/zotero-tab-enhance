@@ -14,6 +14,8 @@ pref-enable-reload-tab =
     .label = 启用右键重新加载标签页
 
 pref-tab-display = 侧边栏标签页自定义
+pref-hide-native-tab-bar =
+    .label = 启用垂直标签栏时隐藏顶部原生标签栏（保留“我的文库”标签）
 pref-vertical-tab-title-mode = 标签页主标题
 pref-vertical-tab-title-mode-title = 标题
 pref-vertical-tab-title-mode-short-title = 短标题

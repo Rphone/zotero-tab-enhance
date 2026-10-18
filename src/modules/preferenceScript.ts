@@ -33,6 +33,7 @@ const PREF_CONTROL_CONFIG = [
 
 const RESET_BUTTON_ID = `${config.addonRef}-pref-reset-plugin-data`;
 const CUSTOM_CSS_INPUT_ID = `${config.addonRef}-pref-vertical-tab-custom-css`;
+const HIDE_NATIVE_TAB_BAR_ID = `${config.addonRef}-pref-hide-native-tab-bar`;
 
 const DISPLAY_SELECT_CONFIG = [
   {
@@ -155,6 +156,12 @@ function bindPrefEvents() {
   }
 
   prefsWindow.document
+    .getElementById(HIDE_NATIVE_TAB_BAR_ID)
+    ?.addEventListener("command", () => {
+      void addon.hooks.onPrefsEvent("displayPrefsChanged", {});
+    });
+
+  prefsWindow.document
     .getElementById(RESET_BUTTON_ID)
     ?.addEventListener("click", async () => {
       await addon.hooks.onPrefsEvent("resetPluginData", {
@@ -212,6 +219,13 @@ function syncPrefControls(window: Window) {
   ) as HTMLTextAreaElement | null;
   if (customCSSInput) {
     customCSSInput.value = getPref("verticalTabCustomCSS");
+  }
+
+  const hideNativeTabBar = window.document.getElementById(
+    HIDE_NATIVE_TAB_BAR_ID,
+  ) as XULCheckboxElement | null;
+  if (hideNativeTabBar) {
+    hideNativeTabBar.checked = Boolean(getPref("hideNativeTabBar"));
   }
 }
 

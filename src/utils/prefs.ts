@@ -29,6 +29,7 @@ export const PLUGIN_PREF_KEYS = [
   "verticalTabRowHeight",
   "verticalTabFontSize",
   "verticalTabCustomCSS",
+  "hideNativeTabBar",
   "groupColor1",
   "groupColor2",
   "groupColor3",
@@ -65,6 +66,7 @@ const DEFAULT_PREF_VALUES: PluginPrefsMap = {
   verticalTabFontSize:
     VERTICAL_TAB_STYLE_PREF_CONFIG.verticalTabFontSize.defaultValue,
   verticalTabCustomCSS: "",
+  hideNativeTabBar: false,
   groupColor1: GROUP_COLOR_PALETTE[0],
   groupColor2: GROUP_COLOR_PALETTE[1],
   groupColor3: GROUP_COLOR_PALETTE[2],
@@ -179,6 +181,7 @@ export function getVerticalTabStylePrefs(): {
   rowHeight: number;
   fontSize: number;
   customCSS: string;
+  hideNativeTabBar: boolean;
 } {
   return {
     rowHeight: normalizeVerticalTabStylePrefValue(
@@ -190,6 +193,7 @@ export function getVerticalTabStylePrefs(): {
       getPref("verticalTabFontSize"),
     ),
     customCSS: getPref("verticalTabCustomCSS"),
+    hideNativeTabBar: Boolean(getPref("hideNativeTabBar")),
   };
 }
 

@@ -13,6 +13,8 @@ pref-enable-reload-tab =
     .label = Enable Reload Tab
 
 pref-tab-display = Customize Tabs of Sidebar
+pref-hide-native-tab-bar =
+    .label = Hide Zotero's horizontal tab bar while the vertical sidebar is on (the My Library tab stays)
 pref-vertical-tab-title-mode = Primary Title
 pref-vertical-tab-title-mode-title = Original Title
 pref-vertical-tab-title-mode-short-title = Short Title

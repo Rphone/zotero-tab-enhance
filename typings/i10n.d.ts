@@ -53,6 +53,7 @@ export type FluentMessageId =
   | 'pref-group-color-8'
   | 'pref-group-colors'
   | 'pref-help'
+  | 'pref-hide-native-tab-bar'
   | 'pref-reset-plugin-data'
   | 'pref-tab-display'
   | 'pref-vertical-tab-custom-css'

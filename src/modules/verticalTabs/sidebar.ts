@@ -60,6 +60,9 @@ import {
 import SidebarMenuController from "./sidebarMenu";
 import SidebarViewRenderer, { scrollTabRowIntoView } from "./sidebarView";
 
+// Root attribute that hides Zotero's horizontal tab strip (see zoteroPane.css).
+const HIDE_NATIVE_TAB_BAR_ATTRIBUTE = "tab-enhance-hide-native-tabs";
+
 export default class VerticalTabSidebar {
   private readonly window: _ZoteroTypes.MainWindow;
   private readonly document: Document;
@@ -591,6 +594,9 @@ export default class VerticalTabSidebar {
     this.window.removeEventListener("dragend", this.handleWindowDragEnd, true);
     this.window.removeEventListener("keydown", this.handleGlobalKeyDown, true);
 
+    this.document.documentElement?.removeAttribute(
+      HIDE_NATIVE_TAB_BAR_ATTRIBUTE,
+    );
     removeSidebarLayout({
       sidebar: this.sidebar,
       splitter: this.splitter,
@@ -3550,7 +3556,8 @@ export default class VerticalTabSidebar {
     if (!this.sidebar) {
       return;
     }
-    const { rowHeight, fontSize, customCSS } = getVerticalTabStylePrefs();
+    const { rowHeight, fontSize, customCSS, hideNativeTabBar } =
+      getVerticalTabStylePrefs();
     this.sidebar.style.setProperty("--te-tab-row-height", `${rowHeight}px`);
     this.sidebar.style.setProperty("--te-tab-font-size", `${fontSize}px`);
     if (this.customStylesheet) {
@@ -3559,6 +3566,10 @@ export default class VerticalTabSidebar {
         customCSS,
       );
     }
+    this.document.documentElement?.toggleAttribute(
+      HIDE_NATIVE_TAB_BAR_ATTRIBUTE,
+      hideNativeTabBar,
+    );
   }
 
   private findTrackedTabByMemberKey(

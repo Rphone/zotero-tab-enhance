@@ -17,6 +17,7 @@ declare namespace _ZoteroTypes {
       "verticalTabRowHeight": number;
       "verticalTabFontSize": number;
       "verticalTabCustomCSS": string;
+      "hideNativeTabBar": boolean;
       "groupColor1": string;
       "groupColor2": string;
       "groupColor3": string;

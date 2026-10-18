@@ -133,6 +133,7 @@ The `TabEnhance` page in Zotero settings provides controls for:
 - Displaying a full title or short title as the primary label.
 - Showing Source, Creator and Year, Type and Item ID, or no subtitle.
 - Adjusting tab-row height and text size.
+- Hiding Zotero's horizontal tab bar while the vertical sidebar is on; the My Library tab stays visible.
 - Writing custom CSS for tab rows and group headers. It applies only inside the vertical sidebar; leave it empty to keep the default style.
 - Configuring eight base group colors. New groups cycle through this palette, and existing groups can select from it.
 - Clearing all add-on preferences, sidebar state, and group data to restore the initial state.
