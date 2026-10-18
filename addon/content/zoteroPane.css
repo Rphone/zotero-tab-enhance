@@ -102,9 +102,13 @@
   width: 44px;
 }
 
-/* Optional: the sidebar replaces the native tab strip. The pinned My Library
-   tab stays visible because the sidebar does not list it. */
-:root[tab-enhance-hide-native-tabs] #tab-bar-container .tabs-wrapper {
+/* Optional: the sidebar replaces the native tab strip. My Library stays
+   visible because the sidebar does not list it; it is the first tab of
+   .tabs-wrapper unless the strip overflows. */
+:root[tab-enhance-hide-native-tabs]
+  #tab-bar-container
+  .tabs-wrapper
+  .tab:not([data-id="zotero-pane"]) {
   display: none;
 }
 
