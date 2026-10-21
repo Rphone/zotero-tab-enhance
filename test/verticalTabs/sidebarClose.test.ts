@@ -119,7 +119,6 @@ describe("sidebar member close buttons", function () {
     ) as unknown as MemberRenderer;
     state = {
       collapsed: false,
-      metadataDeferred: true,
       selectedTabKey: null,
       trackedTabsByMemberKey: new Map(),
     } as SidebarRenderState;

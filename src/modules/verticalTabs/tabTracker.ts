@@ -283,7 +283,7 @@ export default class TabTrackerService {
       return internalTitle;
     }
 
-    return tabId;
+    return "";
   }
 
   private normalizeTitle(
@@ -326,7 +326,7 @@ export default class TabTrackerService {
   ): TrackedTab {
     const itemID = this.extractItemID(tab);
     const parentItemID = this.extractParentItemID(itemID);
-    const title = tab.title || this.extractFallbackTitle(tab);
+    const title = tab.title || this.extractFallbackTitle(tab, itemID);
     const isSelected = tab.id === selectedID || Boolean(tab.selected);
 
     return {
@@ -374,11 +374,56 @@ export default class TabTrackerService {
     }
   }
 
-  private extractFallbackTitle(tab: RuntimeTabLike & { id: string }): string {
+  private extractFallbackTitle(
+    tab: RuntimeTabLike & { id: string },
+    itemID: number | null,
+  ): string {
     if (typeof tab.data?.title === "string" && tab.data.title.trim()) {
       return tab.data.title;
     }
-    return tab.id;
+    if (itemID == null) {
+      return tab.id;
+    }
+    // Zotero opens item tabs untitled and renames them, without a tab
+    // notification, once Item#getTabTitle() resolves; the scheduled reader
+    // reconciles pick that title up. Until then show the same title instead
+    // of the tab ID, without adding a database lookup while the reader loads.
+    return this.getProvisionalTabTitle(itemID);
+  }
+
+  // In-memory copy of Zotero.Item#getTabTitle() (unchanged in Zotero 7-10)
+  // that assumes the opened file is its parent's primary attachment, so it
+  // normally equals the title Zotero sets.
+  private getProvisionalTabTitle(itemID: number): string {
+    try {
+      const item = Zotero.Items.get(itemID);
+      if (!item) {
+        return "";
+      }
+      const format = Zotero.Prefs.get("tabs.title.reader");
+      if (item.isAttachment() && format === "filename") {
+        return item.attachmentFilename;
+      }
+      const parentItem = item.isAttachment() ? item.parentItem : undefined;
+      if (!parentItem) {
+        return item.getDisplayTitle();
+      }
+
+      const title = parentItem.getDisplayTitle();
+      const creator = parentItem.getField("firstCreator", Zotero.isWin);
+      const rawYear = parentItem.getField("year");
+      const year = rawYear === "0000" ? "" : rawYear;
+      const parts =
+        format === "creatorYearTitle" && creator
+          ? [creator, year, title]
+          : format === "title"
+            ? [title]
+            : [title, creator, year];
+      return parts.filter(Boolean).join(" - ");
+    } catch (error) {
+      ztoolkit.log("TabTrackerService failed to build tab title", error);
+      return "";
+    }
   }
 
   private getIconKey(tab: RuntimeTabLike, itemID: number | null): string {

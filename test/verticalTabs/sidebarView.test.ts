@@ -278,7 +278,6 @@ describe("sidebarView", () => {
         collapsed: false,
         viewMode: "default",
         searchQuery: "",
-        metadataDeferred: true,
         trackedTabsByMemberKey: new Map(),
       } as SidebarRenderState;
     });

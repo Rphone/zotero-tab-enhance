@@ -31,7 +31,6 @@ export interface SidebarRenderState {
   dragOverMemberKey: string | null;
   dragOverHeaderGroupId: string | null;
   dragOverPosition: "before" | "after" | null;
-  metadataDeferred: boolean;
   trackedTabsByKey: Map<string, TrackedTab>;
   trackedTabsByMemberKey: Map<string, TrackedTab>;
 }
@@ -790,7 +789,7 @@ export default class SidebarViewRenderer {
     }
 
     const haystack =
-      `${tab.title} ${this.getDisplayTitle(tab, false)} ${this.getDisplaySubtitle(tab, false)} ${this.getMetaText(tab)}`.toLocaleLowerCase();
+      `${tab.title} ${this.getDisplayTitle(tab)} ${this.getDisplaySubtitle(tab)} ${this.getMetaText(tab)}`.toLocaleLowerCase();
     return haystack.includes(searchQuery);
   }
 
@@ -814,7 +813,7 @@ export default class SidebarViewRenderer {
     }
 
     const haystack =
-      `${member.title} ${this.getDisplayTitle(member, false)} ${this.getDisplaySubtitle(member, false)} ${this.getVirtualMemberMetaText(member)}`.toLocaleLowerCase();
+      `${member.title} ${this.getDisplayTitle(member)} ${this.getDisplaySubtitle(member)} ${this.getVirtualMemberMetaText(member)}`.toLocaleLowerCase();
     return haystack.includes(searchQuery);
   }
 
@@ -891,8 +890,8 @@ export default class SidebarViewRenderer {
     if (!state.collapsed) {
       row.appendChild(
         this.renderRowContent(
-          this.getDisplayTitle(tab, state.metadataDeferred),
-          this.getDisplaySubtitle(tab, state.metadataDeferred),
+          this.getDisplayTitle(tab),
+          this.getDisplaySubtitle(tab),
         ),
       );
     }
@@ -959,8 +958,8 @@ export default class SidebarViewRenderer {
     if (!state.collapsed) {
       row.appendChild(
         this.renderRowContent(
-          this.getDisplayTitle(member, state.metadataDeferred),
-          this.getDisplaySubtitle(member, state.metadataDeferred),
+          this.getDisplayTitle(member),
+          this.getDisplaySubtitle(member),
         ),
       );
       row.appendChild(
@@ -1062,11 +1061,7 @@ export default class SidebarViewRenderer {
 
   private getDisplayTitle(
     input: Pick<TrackedTab | VirtualGroupMember, "title" | "itemID" | "parentItemID">,
-    metadataDeferred: boolean,
   ): string {
-    if (metadataDeferred) {
-      return input.title?.trim() || "Untitled";
-    }
     if (this.displayTitleMode === "shortTitle") {
       const item = this.getDisplayItem(input);
       const shortTitle = this.getItemField(item, ["shortTitle"]);
@@ -1082,11 +1077,7 @@ export default class SidebarViewRenderer {
       TrackedTab | VirtualGroupMember,
       "type" | "itemID" | "parentItemID" | "isOpen"
     >,
-    metadataDeferred: boolean,
   ): string {
-    if (metadataDeferred) {
-      return this.getLegacyMetaText(input);
-    }
     switch (this.displaySubtitleMode) {
       case "none":
         return "";

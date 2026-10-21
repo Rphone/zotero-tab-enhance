@@ -6,7 +6,6 @@ type SubtitleRenderer = {
   displaySubtitleMode: string;
   getDisplaySubtitle: (
     input: Pick<TrackedTab, "type" | "itemID" | "parentItemID" | "isOpen">,
-    deferred: boolean,
   ) => string;
 };
 
@@ -53,10 +52,12 @@ describe("sidebar child note subtitles", function () {
   for (const type of ["note", "note-unloaded"]) {
     for (const isOpen of [true, false]) {
       it(`shows the parent title for ${type}, open=${isOpen}`, function () {
-        const subtitle = renderer.getDisplaySubtitle(
-          { type, itemID: 101, parentItemID: 100, isOpen },
-          false,
-        );
+        const subtitle = renderer.getDisplaySubtitle({
+          type,
+          itemID: 101,
+          parentItemID: 100,
+          isOpen,
+        });
         assert(
           subtitle === "Parent article title",
           "expected parent title, not journal",
@@ -67,54 +68,55 @@ describe("sidebar child note subtitles", function () {
 
   it("preserves attachment source subtitles", function () {
     assert(
-      renderer.getDisplaySubtitle(
-        { type: "reader", itemID: 102, parentItemID: 100, isOpen: true },
-        false,
-      ) === "Journal name",
+      renderer.getDisplaySubtitle({
+        type: "reader",
+        itemID: 102,
+        parentItemID: 100,
+        isOpen: true,
+      }) === "Journal name",
       "expected the attachment journal",
     );
   });
 
-  it("preserves other subtitle modes and deferred metadata", function () {
+  it("preserves other subtitle modes", function () {
     const note = { type: "note", itemID: 101, parentItemID: 100, isOpen: true };
     renderer.displaySubtitleMode = "none";
     assert(
-      renderer.getDisplaySubtitle(note, false) === "",
+      renderer.getDisplaySubtitle(note) === "",
       "expected hidden subtitle",
     );
     renderer.displaySubtitleMode = "creatorYear";
     assert(
-      renderer.getDisplaySubtitle(note, false) === "Author · 2026",
+      renderer.getDisplaySubtitle(note) === "Author · 2026",
       "expected creator/year mode",
     );
     renderer.displaySubtitleMode = "typeAndItem";
     assert(
-      renderer.getDisplaySubtitle(note, false) === "note · item 100",
+      renderer.getDisplaySubtitle(note) === "note · item 100",
       "expected type/item mode",
-    );
-    renderer.displaySubtitleMode = "source";
-    assert(
-      renderer.getDisplaySubtitle(note, true) === "note · item 100",
-      "expected deferred metadata fallback",
     );
   });
 
   it("does not replace standalone note subtitles with their own title", function () {
     assert(
-      renderer.getDisplaySubtitle(
-        { type: "note", itemID: 100, parentItemID: 100, isOpen: true },
-        false,
-      ) === "Journal name",
+      renderer.getDisplaySubtitle({
+        type: "note",
+        itemID: 100,
+        parentItemID: 100,
+        isOpen: true,
+      }) === "Journal name",
       "expected the existing source behavior for a standalone note",
     );
   });
 
   it("falls back to item metadata when the parent cannot be resolved", function () {
     assert(
-      renderer.getDisplaySubtitle(
-        { type: "note", itemID: 101, parentItemID: 999, isOpen: false },
-        false,
-      ) === "note · virtual · item 999",
+      renderer.getDisplaySubtitle({
+        type: "note",
+        itemID: 101,
+        parentItemID: 999,
+        isOpen: false,
+      }) === "note · virtual · item 999",
       "expected metadata rather than a wrong source",
     );
   });
@@ -131,12 +133,12 @@ describe("sidebar child note subtitles", function () {
       });
       const input = { type, itemID: 101, parentItemID: 100, isOpen: false };
       assert(
-        renderer.getDisplaySubtitle(input, false).includes("item 100"),
+        renderer.getDisplaySubtitle(input).includes("item 100"),
         "expected a metadata fallback without interrupting rendering",
       );
       loaded = true;
       assert(
-        renderer.getDisplaySubtitle(input, false) ===
+        renderer.getDisplaySubtitle(input) ===
           (type === "reader" ? "Journal name" : "Parent article title"),
         "expected the real metadata once loading completes",
       );
@@ -167,12 +169,12 @@ describe("sidebar child note subtitles", function () {
       isOpen: true,
     };
     assert(
-      renderer.getDisplaySubtitle(input, false) === "Child source",
+      renderer.getDisplaySubtitle(input) === "Child source",
       "expected a temporary child fallback",
     );
     parentLoaded = true;
     assert(
-      renderer.getDisplaySubtitle(input, false) === "Journal name",
+      renderer.getDisplaySubtitle(input) === "Journal name",
       "expected the parent to take priority after loading",
     );
   });
@@ -194,10 +196,10 @@ describe("sidebar child note subtitles", function () {
       parentItemID: 100,
       isOpen: true,
     };
-    renderer.getDisplaySubtitle(input, false);
+    renderer.getDisplaySubtitle(input);
     loaded = true;
     assert(
-      renderer.getDisplaySubtitle(input, false) === "Loaded source",
+      renderer.getDisplaySubtitle(input) === "Loaded source",
       "expected failed field reads not to be cached as empty",
     );
   });

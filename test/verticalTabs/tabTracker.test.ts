@@ -149,6 +149,70 @@ describe("tab tracker change notifications", function () {
     );
   });
 
+  it("titles a new untitled item tab like Zotero instead of with its tab ID", function () {
+    let titleLookups = 0;
+    const attachment = {
+      id: 5,
+      topLevelItem: { id: 105 },
+      attachmentFilename: "paper.pdf",
+      isAttachment: () => true,
+      getDisplayTitle: () => "Full Text PDF",
+      parentItem: {
+        getDisplayTitle: () => "Paper",
+        getField: (field: string) =>
+          field === "firstCreator" ? "Smith" : field === "year" ? "2020" : "",
+      },
+      getTabTitle: async () => {
+        titleLookups++;
+        return "";
+      },
+    };
+    Object.assign(globalThis, {
+      Zotero: {
+        isWin: false,
+        Prefs: { get: () => "titleCreatorYear" },
+        Items: {
+          get: (id: number) =>
+            id === 5 ? attachment : { id, topLevelItem: { id: id + 100 } },
+        },
+      },
+    });
+    const newTitle = () =>
+      tracker.getTabs().find((tab) => tab.tabId === "tab-new")?.title;
+
+    tabs.push({
+      id: "tab-new",
+      type: "reader",
+      title: "",
+      data: { itemID: 5 },
+    });
+    tracker.reconcile("added untitled");
+    assert(
+      newTitle() === "Paper - Smith - 2020",
+      "expected Zotero's title format while Zotero names the tab",
+    );
+    assert(
+      titleLookups === 0,
+      "expected no extra async title lookup while the reader loads",
+    );
+
+    const before = notifications;
+    tabs[tabs.length - 1].title = "Paper - Smith - 2020";
+    tracker.reconcile("renamed");
+    assert(
+      notifications === before,
+      "expected Zotero's matching title to change nothing",
+    );
+
+    tabs[tabs.length - 1].title = "Supplement - Smith - 2020";
+    tracker.reconcile("secondary attachment");
+    assert(
+      notifications === before + 1 &&
+        newTitle() === "Supplement - Smith - 2020",
+      "expected Zotero's own title to take precedence",
+    );
+  });
+
   it("cancels queued work and listeners on destruction", function () {
     tracker.requestReconcile("pending");
     tracker.scheduleDelayedReconcile("pending");

@@ -346,12 +346,6 @@ async function onNotify(
       ids,
       extraData,
     );
-    if (isReaderLifecycle && (event === "add" || event === "load")) {
-      addon.verticalTabSidebarInstances.forEach((verticalTabSidebar) => {
-        verticalTabSidebar.deferReaderMetadata();
-      });
-    }
-
     if (isDeferredReaderLoad) {
       const handled = Array.from(addon.verticalTabSidebarInstances.values()).some(
         (verticalTabSidebar) =>

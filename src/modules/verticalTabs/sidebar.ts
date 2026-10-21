@@ -113,8 +113,6 @@ export default class VerticalTabSidebar {
   private pendingReaderLoadRefreshTimer: number | null = null;
   private displayTitleMode = "title";
   private displaySubtitleMode = "source";
-  private metadataDeferredUntil = 0;
-  private metadataResumeTimer: number | null = null;
   private isResizing: boolean = false;
 
   private readonly handleResizeEnd = () => {
@@ -450,20 +448,6 @@ export default class VerticalTabSidebar {
     this.render(this.tracker.getSnapshot());
   }
 
-  public deferReaderMetadata(
-    duration = SIDEBAR.READER_METADATA_DEFER_MS,
-  ): void {
-    if (!this.initialized) {
-      return;
-    }
-
-    this.metadataDeferredUntil = Math.max(
-      this.metadataDeferredUntil,
-      Date.now() + duration,
-    );
-    this.scheduleMetadataResumeRender();
-  }
-
   public handleDeferredReaderLoad(tabs: DeferredReaderLoadTab[]): boolean {
     if (
       !this.initialized ||
@@ -578,7 +562,6 @@ export default class VerticalTabSidebar {
     this.unsubscribeGroupStore = undefined;
     this.cancelPendingRender();
     this.cancelPendingSearch();
-    this.cancelMetadataResumeRender();
     this.cancelDeferredReaderLoadRefresh();
     this.pendingGroupToggleTimers.forEach((timerId) => {
       this.window.clearTimeout(timerId);
@@ -946,39 +929,15 @@ export default class VerticalTabSidebar {
     return patched;
   }
 
-  private isMetadataDeferred(): boolean {
-    return Date.now() < this.metadataDeferredUntil;
-  }
-
-  private scheduleMetadataResumeRender(): void {
-    this.cancelMetadataResumeRender();
-    const delay = Math.max(0, this.metadataDeferredUntil - Date.now());
-    this.metadataResumeTimer = this.window.setTimeout(() => {
-      this.metadataResumeTimer = null;
-      if (!this.initialized || this.isMetadataDeferred()) {
-        return;
-      }
-      this.render(this.tracker.getSnapshot());
-    }, delay);
-  }
-
-  private cancelMetadataResumeRender(): void {
-    if (this.metadataResumeTimer != null) {
-      this.window.clearTimeout(this.metadataResumeTimer);
-      this.metadataResumeTimer = null;
-    }
-  }
-
   private scheduleDeferredReaderLoadRefresh(): void {
     this.cancelDeferredReaderLoadRefresh();
-    const delay = Math.max(0, this.metadataDeferredUntil - Date.now());
     this.pendingReaderLoadRefreshTimer = this.window.setTimeout(() => {
       this.pendingReaderLoadRefreshTimer = null;
       if (!this.initialized) {
         return;
       }
       this.tracker.requestReconcile("deferred-reader-load", 0);
-    }, delay);
+    }, SIDEBAR.READER_LOAD_REFRESH_DELAY_MS);
   }
 
   private cancelDeferredReaderLoadRefresh(): void {
@@ -1012,7 +971,6 @@ export default class VerticalTabSidebar {
         dragOverMemberKey: this.dragOverMemberKey,
         dragOverHeaderGroupId: this.dragOverHeaderGroupId,
         dragOverPosition: this.dragOverPosition,
-        metadataDeferred: this.isMetadataDeferred(),
         trackedTabsByKey: this.trackedTabsByKey,
         trackedTabsByMemberKey: this.trackedTabsByMemberKey,
       },
@@ -3372,10 +3330,6 @@ export default class VerticalTabSidebar {
       "title" | "itemID" | "parentItemID"
     >,
   ): string {
-    if (this.isMetadataDeferred()) {
-      return input.title?.trim() || "Untitled";
-    }
-
     if (this.displayTitleMode === "shortTitle") {
       const item = this.getDisplayItem(input);
       const shortTitle = this.getItemField(item, ["shortTitle"]);
@@ -3392,10 +3346,6 @@ export default class VerticalTabSidebar {
       "type" | "itemID" | "parentItemID" | "isOpen"
     >,
   ): string {
-    if (this.isMetadataDeferred()) {
-      return this.getLegacyMetaText(input);
-    }
-
     switch (this.displaySubtitleMode) {
       case "none":
         return "";
